@@ -14,6 +14,7 @@ class UserUpdate(BaseModel):
     )
     bio: Optional[str] = Field(None, max_length=150)
     email: Optional[EmailStr] = None
+    avatar_url: Optional[str] = Field(None, max_length=512)
 
 
 class UserProfileResponse(UserResponse):

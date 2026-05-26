@@ -151,3 +151,74 @@ Retrieves the profile of another user by their unique handle. Used when navigati
     "detail": "User not found"
   }
   ```
+
+---
+
+### 4. Upload Profile Image (2-Step Direct Upload Flow)
+To update the user's profile image (photo), follow this direct upload flow (avoiding proxies through backend memory).
+
+#### Step 1: Request an Upload Presigned URL
+Call this route to retrieve an upload target ticket (AWS S3 URL or Local Emulator Endpoint).
+
+- **URL:** `/api/v1/media/presigned-url`
+- **Method:** `POST`
+- **Content-Type:** `application/json`
+- **Headers:** `Authorization: Bearer <token>`
+
+##### Request Payload
+- `file_name` (string): The filename of the chosen file (e.g. `me.jpg`).
+- `file_type` (string): The MIME content-type of the file (e.g. `image/jpeg`).
+- `purpose` (string): Must be `"avatar"` for profile photo changes.
+
+```json
+{
+  "file_name": "me.jpg",
+  "file_type": "image/jpeg",
+  "purpose": "avatar"
+}
+```
+
+##### Response (Success - 200 OK)
+Returns target URLs for the upload:
+
+```json
+{
+  "upload_url": "http://localhost:8000/api/v1/media/local-upload?file_key=avatars/1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d.jpg",
+  "download_url": "http://localhost:8000/static/uploads/avatars/1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d.jpg",
+  "file_key": "avatars/1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d.jpg",
+  "is_local": true
+}
+```
+*(In production, `upload_url` will point directly to a temporary secure Amazon S3 endpoint and `is_local` will be `false`).*
+
+---
+
+#### Step 2: Upload File Binary
+Make an HTTP `PUT` request directly to the `upload_url` returned in Step 1.
+- You must send the raw file binary data directly in the request body (do not send as form-data).
+- Set the `Content-Type` header to match the MIME type specified in Step 1.
+
+##### Example using Curl:
+```bash
+curl -X PUT \
+  -H "Content-Type: image/jpeg" \
+  --data-binary "@my_avatar.jpg" \
+  "http://localhost:8000/api/v1/media/local-upload?file_key=avatars/1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d.jpg"
+```
+
+---
+
+#### Step 3: Link the Image to the User Profile
+Once the PUT upload completes successfully (HTTP status 200), update the user's profile with the new avatar link. Call the Edit Profile endpoint (`PATCH /api/v1/users/me`), setting `avatar_url` to the value of `download_url` returned in Step 1:
+
+- **URL:** `/api/v1/users/me`
+- **Method:** `PATCH`
+- **Content-Type:** `application/json`
+- **Headers:** `Authorization: Bearer <token>`
+
+```json
+{
+  "avatar_url": "http://localhost:8000/static/uploads/avatars/1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d.jpg"
+}
+```
+*(Once saved, all public profile queries will return this avatar URL).*
