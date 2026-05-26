@@ -33,6 +33,8 @@ app/modules/posts/__init__.py
 app/modules/realtime/__init__.py
 app/modules/users/__init__.py
 app/modules/users/models.py
+app/modules/users/router.py
+app/modules/users/schemas.py
 app/shared/__init__.py
 app/shared/dto/__init__.py
 app/shared/enums/__init__.py

@@ -10,6 +10,7 @@ from alembic import context
 # Import settings and models for metadata discovery
 from app.core.config.settings import settings
 from app.shared.models.base import Base
+
 # Make sure to import all models so SQLAlchemy registers them on Base.metadata
 from app.modules.users.models import User
 
@@ -24,6 +25,7 @@ if config.config_file_name is not None:
 
 # Set the target metadata for autogenerate support
 target_metadata = Base.metadata
+
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.

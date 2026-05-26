@@ -21,3 +21,4 @@ mypy
 pytest
 pytest-asyncio
 httpx
+pre-commit
