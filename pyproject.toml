@@ -20,6 +20,7 @@ dependencies = [
     "structlog",
     "pyjwt",
     "bcrypt",
+    "python-multipart",
 ]
 
 [project.optional-dependencies]

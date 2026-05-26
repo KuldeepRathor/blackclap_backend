@@ -17,6 +17,7 @@ Requires-Dist: python-dotenv
 Requires-Dist: structlog
 Requires-Dist: pyjwt
 Requires-Dist: bcrypt
+Requires-Dist: python-multipart
 Provides-Extra: dev
 Requires-Dist: ruff; extra == "dev"
 Requires-Dist: black; extra == "dev"

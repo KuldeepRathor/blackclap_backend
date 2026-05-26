@@ -12,6 +12,7 @@ python-dotenv
 structlog
 pyjwt
 bcrypt
+python-multipart
 
 [dev]
 ruff
