@@ -12,6 +12,7 @@ python-dotenv
 structlog
 pyjwt
 bcrypt
+python-multipart
 
 [dev]
 ruff
@@ -20,3 +21,4 @@ mypy
 pytest
 pytest-asyncio
 httpx
+pre-commit

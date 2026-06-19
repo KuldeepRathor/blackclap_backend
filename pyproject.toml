@@ -20,6 +20,7 @@ dependencies = [
     "structlog",
     "pyjwt",
     "bcrypt",
+    "python-multipart",
 ]
 
 [project.optional-dependencies]
@@ -30,10 +31,18 @@ dev = [
     "pytest",
     "pytest-asyncio",
     "httpx",
+    "pre-commit",
 ]
 
 [tool.ruff]
 line-length = 88
+exclude = [
+    "alembic",
+    "venv",
+    ".venv",
+]
+
+[tool.ruff.lint]
 select = ["E", "F", "I"]
 
 [tool.black]
@@ -43,7 +52,7 @@ line-length = 88
 python_version = "3.10"
 strict = true
 ignore_missing_imports = true
+exclude = ["venv", ".venv", "alembic", "scripts"]
 
 [tool.setuptools.packages.find]
 include = ["app", "app.*"]
-

@@ -33,7 +33,24 @@ class Token(BaseModel):
     """Schema for standard OAuth2 token responses."""
 
     access_token: str
+    refresh_token: Optional[str] = None
     token_type: str = "bearer"
+
+
+class UserLogin(BaseModel):
+    """Schema for validating user login requests via JSON."""
+
+    email_or_username: str
+    password: str
+
+
+class AuthResponse(BaseModel):
+    """Unified response containing tokens and user profile information."""
+
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    user: UserResponse
 
 
 class TokenData(BaseModel):

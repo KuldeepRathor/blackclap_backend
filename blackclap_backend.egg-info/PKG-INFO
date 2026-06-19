@@ -17,6 +17,7 @@ Requires-Dist: python-dotenv
 Requires-Dist: structlog
 Requires-Dist: pyjwt
 Requires-Dist: bcrypt
+Requires-Dist: python-multipart
 Provides-Extra: dev
 Requires-Dist: ruff; extra == "dev"
 Requires-Dist: black; extra == "dev"
@@ -24,3 +25,4 @@ Requires-Dist: mypy; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-asyncio; extra == "dev"
 Requires-Dist: httpx; extra == "dev"
+Requires-Dist: pre-commit; extra == "dev"

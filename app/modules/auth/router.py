@@ -7,21 +7,28 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database.session import get_db
 from app.core.security.auth import get_current_user
-from app.core.security.jwt import create_access_token
+from app.core.security.jwt import create_access_token, create_refresh_token
 from app.core.security.password import hash_password, verify_password
-from app.modules.auth.schemas import Token, UserRegister, UserResponse
+from app.modules.auth.schemas import (
+    AuthResponse,
+    Token,
+    UserLogin,
+    UserRegister,
+    UserResponse,
+)
 from app.modules.users.models import User
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
 @router.post(
-    "/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED
+    "/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED
 )
 async def register(user_in: UserRegister, db: AsyncSession = Depends(get_db)) -> Any:
     """
     Register a new user in the system.
     Validates username/email uniqueness, hashes the password, and creates the record.
+    Returns the user profile along with access and refresh tokens.
     """
     # Check if user with same email or username already exists
     stmt = select(User).where(
@@ -54,7 +61,57 @@ async def register(user_in: UserRegister, db: AsyncSession = Depends(get_db)) ->
     db.add(user)
     await db.commit()
     await db.refresh(user)
-    return user
+
+    # Automatically generate access & refresh tokens on signup
+    access_token = create_access_token(data={"sub": str(user.id)})
+    refresh_token = create_refresh_token(data={"sub": str(user.id)})
+
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "user": user,
+    }
+
+
+@router.post("/login", response_model=AuthResponse)
+async def login(user_in: UserLogin, db: AsyncSession = Depends(get_db)) -> Any:
+    """
+    Login using email or username and password, returning an access and refresh token.
+    Accepts JSON body.
+    """
+    # Find user by username or email
+    stmt = select(User).where(
+        or_(
+            User.username == user_in.email_or_username,
+            User.email == user_in.email_or_username,
+        )
+    )
+    result = await db.execute(stmt)
+    user = result.scalar_one_or_none()
+
+    if not user or not verify_password(user_in.password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Incorrect username/email or password",
+        )
+
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User account is inactive",
+        )
+
+    # Generate JWT tokens
+    access_token = create_access_token(data={"sub": str(user.id)})
+    refresh_token = create_refresh_token(data={"sub": str(user.id)})
+
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "user": user,
+    }
 
 
 @router.post("/token", response_model=Token)
@@ -63,7 +120,7 @@ async def login_for_access_token(
     db: AsyncSession = Depends(get_db),
 ) -> Any:
     """
-    OAuth2 compatible token login, returning an access token.
+    OAuth2 compatible token login, returning an access token and a refresh token.
     Allows authentication using either Username or Email in the username field.
     """
     # Find user by username or email
@@ -88,9 +145,15 @@ async def login_for_access_token(
             detail="User account is inactive",
         )
 
-    # Generate JWT token with sub set to user ID UUID string
+    # Generate JWT tokens
     access_token = create_access_token(data={"sub": str(user.id)})
-    return {"access_token": access_token, "token_type": "bearer"}
+    refresh_token = create_refresh_token(data={"sub": str(user.id)})
+
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+    }
 
 
 @router.get("/me", response_model=UserResponse)

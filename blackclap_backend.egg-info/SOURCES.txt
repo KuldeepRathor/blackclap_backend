@@ -11,12 +11,16 @@ app/core/database/session.py
 app/core/logging/__init__.py
 app/core/middleware/__init__.py
 app/core/security/__init__.py
-app/core/security/firebase.py
+app/core/security/auth.py
+app/core/security/jwt.py
+app/core/security/password.py
 app/core/storage/__init__.py
 app/core/utils/__init__.py
 app/core/websocket/__init__.py
 app/modules/__init__.py
 app/modules/auth/__init__.py
+app/modules/auth/router.py
+app/modules/auth/schemas.py
 app/modules/chat/__init__.py
 app/modules/comments/__init__.py
 app/modules/feed/__init__.py
@@ -29,6 +33,8 @@ app/modules/posts/__init__.py
 app/modules/realtime/__init__.py
 app/modules/users/__init__.py
 app/modules/users/models.py
+app/modules/users/router.py
+app/modules/users/schemas.py
 app/shared/__init__.py
 app/shared/dto/__init__.py
 app/shared/enums/__init__.py
