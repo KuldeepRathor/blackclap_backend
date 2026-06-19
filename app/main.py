@@ -8,7 +8,6 @@ from app.modules.users.router import router as users_router
 
 app = FastAPI(
     title="BlackClap API",
-    description="Startup-focused social media backend",
     version="1.0.0",
     docs_url="/api/v1/docs",
     redoc_url="/api/v1/redoc",
