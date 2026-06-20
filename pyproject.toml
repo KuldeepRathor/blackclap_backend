@@ -13,7 +13,7 @@ dependencies = [
     "alembic",
     "pydantic[email]",
     "pydantic-settings",
-    "boto3",
+    "azure-storage-blob",
     "celery",
     "redis",
     "python-dotenv",

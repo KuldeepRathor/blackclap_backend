@@ -5,6 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from app.modules.auth.router import router as auth_router
 from app.modules.media.router import router as media_router
 from app.modules.users.router import router as users_router
+from app.modules.uploads.router import router as uploads_router
 
 app = FastAPI(
     title="BlackClap API",
@@ -30,6 +31,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(users_router, prefix="/api/v1")
 app.include_router(media_router, prefix="/api/v1")
+app.include_router(uploads_router, prefix="/api/v1")
 
 
 @app.get("/")

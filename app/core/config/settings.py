@@ -45,12 +45,14 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
 
-    # AWS
-    AWS_ACCESS_KEY_ID: Optional[str] = None
-    AWS_SECRET_ACCESS_KEY: Optional[str] = None
-    AWS_REGION: str = "ap-south-1"
-    S3_BUCKET_NAME: Optional[str] = None
-    CLOUDFRONT_DOMAIN: Optional[str] = None
+    # Azure Blob Storage
+    AZURE_STORAGE_CONNECTION_STRING: Optional[str] = None
+    AZURE_STORAGE_ACCOUNT_NAME: Optional[str] = None
+    AZURE_POST_MEDIA_CONTAINER: str = "post-media"
+    AZURE_PROFILE_CONTAINER: str = "profile-images"
+    AZURE_THUMBNAIL_CONTAINER: str = "thumbnails"
+    AZURE_TEMP_CONTAINER: str = "temp"
+    AZURE_SAS_EXPIRY_MINUTES: int = 15
 
     # Redis & Celery
     REDIS_URL: str = "redis://localhost:6379/0"
