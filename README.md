@@ -1,5 +1,16 @@
 # BlackClap Backend
 
+## Docs
+
+| Guide | Description |
+|---|---|
+| [Local Development](readme/local_dev.md) | Setup, run, lint, reset |
+| [Production Deployment](readme/production.md) | Deploy, systemd, nginx, updates |
+| [Database](readme/database.md) | Migrations, inspection, reset |
+| [Image Upload](readme/image_upload.md) | Azure SAS upload flow |
+
+---
+
 Instagram/TikTok-style social media platform — short-form videos, image posts, realtime interactions. Modular monolith built to ship fast and scale later.
 
 ---
