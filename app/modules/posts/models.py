@@ -42,6 +42,7 @@ class PostMedia(BaseModel):
     )
     media_url: Mapped[str] = mapped_column(String(1024), nullable=False)
     media_type: Mapped[str] = mapped_column(String(10), nullable=False)
+    thumbnail_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     post: Mapped["Post"] = relationship("Post", back_populates="media")

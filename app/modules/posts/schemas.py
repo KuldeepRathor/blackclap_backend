@@ -15,6 +15,7 @@ class PostMediaResponse(BaseModel):
     id: uuid.UUID
     media_url: str
     media_type: str
+    thumbnail_url: str | None
     order: int
 
     model_config = ConfigDict(from_attributes=True)
@@ -25,6 +26,7 @@ class CreatePostRequest(BaseModel):
     location: str | None = Field(None, max_length=255)
     media_type: MediaType = MediaType.text
     media_urls: list[str] = Field(default_factory=list, max_length=5)
+    thumbnail_url: str | None = Field(None, description="Thumbnail blob URL for video posts")
 
     @model_validator(mode="after")
     def validate_post(self) -> "CreatePostRequest":
@@ -36,6 +38,8 @@ class CreatePostRequest(BaseModel):
             raise ValueError("Only 1 video allowed per post")
         if self.media_type != MediaType.text and not self.media_urls:
             raise ValueError("media_urls required when media_type is image or video")
+        if self.thumbnail_url and self.media_type != MediaType.video:
+            raise ValueError("thumbnail_url is only valid for video posts")
         return self
 
 
