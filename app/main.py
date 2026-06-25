@@ -7,6 +7,7 @@ from app.modules.comments.router import router as comments_router
 from app.modules.likes.router import router as likes_router
 from app.modules.media.router import router as media_router
 from app.modules.posts.router import router as posts_router
+from app.modules.saves.router import router as saves_router
 from app.modules.uploads.router import router as uploads_router
 from app.modules.users.router import router as users_router
 
@@ -38,6 +39,7 @@ app.include_router(uploads_router, prefix="/api/v1")
 app.include_router(posts_router, prefix="/api/v1")
 app.include_router(likes_router, prefix="/api/v1")
 app.include_router(comments_router, prefix="/api/v1")
+app.include_router(saves_router, prefix="/api/v1")
 
 
 @app.get("/")

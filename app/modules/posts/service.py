@@ -8,6 +8,7 @@ from app.modules.comments.models import Comment
 from app.modules.likes.models import PostLike
 from app.modules.posts.models import Post, PostMedia
 from app.modules.posts.schemas import CreatePostRequest, PostMediaResponse, PostResponse
+from app.modules.saves.models import PostSave
 
 
 def _build_post_response(
@@ -15,6 +16,7 @@ def _build_post_response(
     likes_count: int = 0,
     comments_count: int = 0,
     is_liked: bool = False,
+    is_saved: bool = False,
 ) -> PostResponse:
     return PostResponse(
         id=post.id,
@@ -26,6 +28,7 @@ def _build_post_response(
         likes_count=likes_count,
         comments_count=comments_count,
         is_liked=is_liked,
+        is_saved=is_saved,
         created_at=post.created_at,
         updated_at=post.updated_at,
     )
@@ -63,12 +66,21 @@ async def _enrich_posts(
     )
     liked_set: set[uuid.UUID] = {row.post_id for row in liked_rows}
 
+    saved_rows = await db.execute(
+        select(PostSave.post_id).where(
+            PostSave.post_id.in_(post_ids),
+            PostSave.user_id == requesting_user_id,
+        )
+    )
+    saved_set: set[uuid.UUID] = {row.post_id for row in saved_rows}
+
     return [
         _build_post_response(
             post,
             likes_count=likes_map.get(post.id, 0),
             comments_count=comments_map.get(post.id, 0),
             is_liked=post.id in liked_set,
+            is_saved=post.id in saved_set,
         )
         for post in posts
     ]
