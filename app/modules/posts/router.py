@@ -15,7 +15,11 @@ async def get_my_posts_endpoint(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[PostResponse]:
-    return await get_user_posts(user_id=current_user.id, db=db)
+    return await get_user_posts(
+        user_id=current_user.id,
+        requesting_user_id=current_user.id,
+        db=db,
+    )
 
 
 @router.post("", response_model=PostResponse, status_code=status.HTTP_201_CREATED)

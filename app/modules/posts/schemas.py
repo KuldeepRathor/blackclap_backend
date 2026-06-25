@@ -50,6 +50,9 @@ class PostResponse(BaseModel):
     location: str | None
     media_type: str
     media: list[PostMediaResponse]
+    likes_count: int = 0
+    comments_count: int = 0
+    is_liked: bool = False
     created_at: datetime
     updated_at: datetime
 
