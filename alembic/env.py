@@ -12,7 +12,11 @@ from app.core.config.settings import settings
 from app.shared.models.base import Base
 
 # Make sure to import all models so SQLAlchemy registers them on Base.metadata
-from app.modules.users.models import User
+from app.modules.comments.models import Comment  # noqa: F401
+from app.modules.likes.models import PostLike  # noqa: F401
+from app.modules.posts.models import Post, PostMedia  # noqa: F401
+from app.modules.saves.models import PostSave  # noqa: F401
+from app.modules.users.models import User  # noqa: F401
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
