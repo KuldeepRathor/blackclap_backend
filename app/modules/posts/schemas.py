@@ -58,3 +58,11 @@ class PostResponse(BaseModel):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class FeedPostResponse(PostResponse):
+    """PostResponse enriched with author profile fields for the home feed."""
+
+    username: str
+    display_name: str | None
+    avatar_url: str | None

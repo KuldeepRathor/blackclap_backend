@@ -4,6 +4,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.modules.auth.router import router as auth_router
 from app.modules.comments.router import router as comments_router
+from app.modules.follows.router import router as follows_router
 from app.modules.likes.router import router as likes_router
 from app.modules.media.router import router as media_router
 from app.modules.posts.router import router as posts_router
@@ -37,6 +38,7 @@ app.include_router(users_router, prefix="/api/v1")
 app.include_router(media_router, prefix="/api/v1")
 app.include_router(uploads_router, prefix="/api/v1")
 app.include_router(posts_router, prefix="/api/v1")
+app.include_router(follows_router, prefix="/api/v1")
 app.include_router(likes_router, prefix="/api/v1")
 app.include_router(comments_router, prefix="/api/v1")
 app.include_router(saves_router, prefix="/api/v1")
