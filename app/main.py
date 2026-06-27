@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.modules.auth.router import router as auth_router
+from app.modules.search.router import router as search_router
 from app.modules.comments.router import router as comments_router
 from app.modules.follows.router import router as follows_router
 from app.modules.likes.router import router as likes_router
@@ -42,6 +43,7 @@ app.include_router(follows_router, prefix="/api/v1")
 app.include_router(likes_router, prefix="/api/v1")
 app.include_router(comments_router, prefix="/api/v1")
 app.include_router(saves_router, prefix="/api/v1")
+app.include_router(search_router, prefix="/api/v1")
 
 
 @app.get("/")
