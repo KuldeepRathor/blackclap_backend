@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from app.core.cache.redis_cache import cache
 from app.core.websocket.pubsub import pubsub
 from app.modules.auth.router import router as auth_router
 from app.modules.chat.router import router as chat_router
@@ -21,12 +22,12 @@ from app.modules.users.router import router as users_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Open the shared Redis connection and start the pub/sub reader that bridges
-    # cross-instance WebSocket delivery to locally-connected sockets.
     await pubsub.start()
+    await cache.start()
     try:
         yield
     finally:
+        await cache.stop()
         await pubsub.stop()
 
 
