@@ -1,4 +1,6 @@
+import json
 import uuid
+from datetime import datetime
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,12 +12,15 @@ from app.modules.posts.models import Post, PostMedia, PostTag, PostView
 from app.modules.posts.schemas import (
     CreatePostRequest,
     FeedPostResponse,
+    MediaType,
     PostMediaResponse,
     PostResponse,
     TaggedUserResponse,
 )
 from app.modules.saves.models import PostSave
 from app.modules.users.models import User
+
+_REELS_CACHE_TTL = 60  # seconds — shared base data across all users
 
 
 async def _fetch_tagged_users_map(
@@ -81,6 +86,64 @@ def _build_post_response(
         created_at=post.created_at,
         updated_at=post.updated_at,
     )
+
+
+async def _enrich_posts_base(
+    posts: list[Post],
+    db: AsyncSession,
+) -> list[FeedPostResponse]:
+    """Enrich posts with non-user-specific data only (counts, author info, tags).
+    is_liked and is_saved are left False — callers patch them per-user from cache."""
+    if not posts:
+        return []
+
+    post_ids = [p.id for p in posts]
+    user_ids = list({p.user_id for p in posts})
+
+    likes_rows = await db.execute(
+        select(PostLike.post_id, func.count().label("cnt"))
+        .where(PostLike.post_id.in_(post_ids))
+        .group_by(PostLike.post_id)
+    )
+    likes_map: dict[uuid.UUID, int] = {row.post_id: row.cnt for row in likes_rows}
+
+    comments_rows = await db.execute(
+        select(Comment.post_id, func.count().label("cnt"))
+        .where(Comment.post_id.in_(post_ids), Comment.parent_id.is_(None))
+        .group_by(Comment.post_id)
+    )
+    comments_map: dict[uuid.UUID, int] = {row.post_id: row.cnt for row in comments_rows}
+
+    users_rows = await db.execute(
+        select(User.id, User.username, User.display_name, User.avatar_url)
+        .where(User.id.in_(user_ids))
+    )
+    users_map = {row.id: row for row in users_rows}
+
+    tags_map = await _fetch_tagged_users_map(post_ids, db)
+
+    return [
+        FeedPostResponse(
+            id=post.id,
+            user_id=post.user_id,
+            caption=post.caption,
+            location=post.location,
+            media_type=post.media_type,
+            media=[PostMediaResponse.model_validate(m) for m in post.media],
+            likes_count=likes_map.get(post.id, 0),
+            comments_count=comments_map.get(post.id, 0),
+            views_count=post.views_count,
+            is_liked=False,
+            is_saved=False,
+            tagged_users=tags_map.get(post.id, []),
+            created_at=post.created_at,
+            updated_at=post.updated_at,
+            username=users_map[post.user_id].username if post.user_id in users_map else "",
+            display_name=users_map[post.user_id].display_name if post.user_id in users_map else None,
+            avatar_url=users_map[post.user_id].avatar_url if post.user_id in users_map else None,
+        )
+        for post in posts
+    ]
 
 
 async def _enrich_to_feed_responses(
@@ -233,19 +296,71 @@ async def get_reels(
     requesting_user_id: uuid.UUID,
     db: AsyncSession,
     limit: int = 20,
-    offset: int = 0,
+    cursor: datetime | None = None,
 ) -> list[FeedPostResponse]:
-    stmt = (
-        select(Post)
-        .where(Post.deleted_at.is_(None), Post.media_type == "video")
-        .options(selectinload(Post.media))
-        .order_by(Post.created_at.desc())
-        .limit(limit)
-        .offset(offset)
+    from app.core.cache.redis_cache import cache
+
+    cursor_str = cursor.isoformat() if cursor else "start"
+    cache_key = f"reels:base:{cursor_str}:{limit}"
+
+    # Attempt to load shared base data from cache
+    base_responses: list[FeedPostResponse] | None = None
+    cached_raw = await cache.get(cache_key)
+    if cached_raw is not None:
+        try:
+            base_responses = [FeedPostResponse.model_validate(d) for d in json.loads(cached_raw)]
+        except Exception:
+            base_responses = None  # stale/corrupt — fall through to DB
+
+    if base_responses is None:
+        # Cursor-based query — avoids slow OFFSET scans
+        stmt = (
+            select(Post)
+            .where(Post.deleted_at.is_(None), Post.media_type == "video")
+            .options(selectinload(Post.media))
+        )
+        if cursor is not None:
+            stmt = stmt.where(Post.created_at < cursor)
+        stmt = stmt.order_by(Post.created_at.desc()).limit(limit)
+
+        result = await db.execute(stmt)
+        posts = list(result.scalars().all())
+
+        base_responses = await _enrich_posts_base(posts, db)
+
+        # Cache base data shared across all users (is_liked/is_saved excluded)
+        await cache.setex(
+            cache_key,
+            _REELS_CACHE_TTL,
+            json.dumps([r.model_dump(mode="json") for r in base_responses]),
+        )
+
+    if not base_responses:
+        return base_responses
+
+    # Apply user-specific flags — only 2 fast indexed queries
+    post_ids = [r.id for r in base_responses]
+
+    liked_rows = await db.execute(
+        select(PostLike.post_id).where(
+            PostLike.post_id.in_(post_ids),
+            PostLike.user_id == requesting_user_id,
+        )
     )
-    result = await db.execute(stmt)
-    posts = list(result.scalars().all())
-    return await _enrich_to_feed_responses(posts, requesting_user_id, db)
+    liked_set: set[uuid.UUID] = {row.post_id for row in liked_rows}
+
+    saved_rows = await db.execute(
+        select(PostSave.post_id).where(
+            PostSave.post_id.in_(post_ids),
+            PostSave.user_id == requesting_user_id,
+        )
+    )
+    saved_set: set[uuid.UUID] = {row.post_id for row in saved_rows}
+
+    return [
+        r.model_copy(update={"is_liked": r.id in liked_set, "is_saved": r.id in saved_set})
+        for r in base_responses
+    ]
 
 
 async def get_feed_posts(
@@ -321,6 +436,15 @@ async def record_post_view(
     await db.commit()
 
 
+async def record_post_view_bg(post_id: uuid.UUID, viewer_id: uuid.UUID) -> None:
+    """Background-safe wrapper — creates its own DB session so the view
+    recording can run after the HTTP response is already sent."""
+    from app.core.database.session import async_session
+
+    async with async_session() as db:
+        await record_post_view(post_id=post_id, viewer_id=viewer_id, db=db)
+
+
 async def create_post(
     user_id: uuid.UUID,
     req: CreatePostRequest,
@@ -353,6 +477,11 @@ async def create_post(
         db.add(PostTag(post_id=post.id, tagged_user_id=tagged_user_id))
 
     await db.commit()
+
+    # A new video post invalidates the cached reel feed
+    if req.media_type == MediaType.video:
+        from app.core.cache.redis_cache import cache
+        await cache.delete_pattern("reels:base:*")
 
     stmt = (
         select(Post)

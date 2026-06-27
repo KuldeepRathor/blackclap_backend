@@ -1,6 +1,7 @@
 import uuid
+from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,7 +16,7 @@ from app.modules.posts.service import (
     get_user_posts,
     get_saved_posts_feed,
     get_tagged_posts,
-    record_post_view,
+    record_post_view_bg,
 )
 from app.modules.users.models import User
 
@@ -40,7 +41,7 @@ async def get_feed_endpoint(
 @router.get("/reels", response_model=list[FeedPostResponse])
 async def get_reels_endpoint(
     limit: int = Query(default=20, ge=1, le=50),
-    offset: int = Query(default=0, ge=0),
+    cursor: datetime | None = Query(default=None, description="created_at of the last reel received; omit for first page"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[FeedPostResponse]:
@@ -48,7 +49,7 @@ async def get_reels_endpoint(
         requesting_user_id=current_user.id,
         db=db,
         limit=limit,
-        offset=offset,
+        cursor=cursor,
     )
 
 
@@ -139,10 +140,11 @@ async def delete_post_endpoint(
 @router.post("/{post_id}/view", status_code=status.HTTP_204_NO_CONTENT)
 async def record_view_endpoint(
     post_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
 ) -> None:
-    await record_post_view(post_id=post_id, viewer_id=current_user.id, db=db)
+    # Returns immediately; DB write happens after response is sent
+    background_tasks.add_task(record_post_view_bg, post_id, current_user.id)
 
 
 @router.post("", response_model=PostResponse, status_code=status.HTTP_201_CREATED)
