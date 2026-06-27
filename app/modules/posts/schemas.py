@@ -21,12 +21,22 @@ class PostMediaResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class TaggedUserResponse(BaseModel):
+    id: uuid.UUID
+    username: str
+    display_name: str | None
+    avatar_url: str | None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class CreatePostRequest(BaseModel):
     caption: str | None = Field(None, max_length=2200)
     location: str | None = Field(None, max_length=255)
     media_type: MediaType = MediaType.text
     media_urls: list[str] = Field(default_factory=list, max_length=5)
     thumbnail_url: str | None = Field(None, description="Thumbnail blob URL for video posts")
+    tagged_user_ids: list[uuid.UUID] = Field(default_factory=list, max_length=20)
 
     @model_validator(mode="after")
     def validate_post(self) -> "CreatePostRequest":
@@ -52,8 +62,10 @@ class PostResponse(BaseModel):
     media: list[PostMediaResponse]
     likes_count: int = 0
     comments_count: int = 0
+    views_count: int = 0
     is_liked: bool = False
     is_saved: bool = False
+    tagged_users: list[TaggedUserResponse] = []
     created_at: datetime
     updated_at: datetime
 
