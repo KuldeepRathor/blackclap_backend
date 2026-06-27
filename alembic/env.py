@@ -12,6 +12,11 @@ from app.core.config.settings import settings
 from app.shared.models.base import Base
 
 # Make sure to import all models so SQLAlchemy registers them on Base.metadata
+from app.modules.chat.models import (  # noqa: F401
+    Conversation,
+    ConversationParticipant,
+    Message,
+)
 from app.modules.comments.models import Comment  # noqa: F401
 from app.modules.likes.models import PostLike  # noqa: F401
 from app.modules.posts.models import Post, PostMedia  # noqa: F401

@@ -9,8 +9,14 @@ from app.modules.comments.schemas import (
     CommentResponse,
     CommentsListResponse,
     CreateCommentRequest,
+    RepliesListResponse,
 )
-from app.modules.comments.service import add_comment, delete_comment, get_comments
+from app.modules.comments.service import (
+    add_comment,
+    delete_comment,
+    get_comments,
+    get_replies,
+)
 from app.modules.users.models import User
 
 router = APIRouter(prefix="/posts", tags=["Comments"])
@@ -19,12 +25,26 @@ router = APIRouter(prefix="/posts", tags=["Comments"])
 @router.get("/{post_id}/comments", response_model=CommentsListResponse)
 async def list_comments_endpoint(
     post_id: uuid.UUID,
-    limit: int = Query(20, ge=1, le=100),
-    offset: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=50),
+    after_cursor: str | None = Query(None),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> CommentsListResponse:
-    return await get_comments(post_id=post_id, db=db, limit=limit, offset=offset)
+    return await get_comments(post_id=post_id, db=db, limit=limit, after_cursor=after_cursor)
+
+
+@router.get("/{post_id}/comments/{comment_id}/replies", response_model=RepliesListResponse)
+async def list_replies_endpoint(
+    post_id: uuid.UUID,
+    comment_id: uuid.UUID,
+    limit: int = Query(10, ge=1, le=50),
+    after_cursor: str | None = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> RepliesListResponse:
+    return await get_replies(
+        post_id=post_id, comment_id=comment_id, db=db, limit=limit, after_cursor=after_cursor
+    )
 
 
 @router.post(

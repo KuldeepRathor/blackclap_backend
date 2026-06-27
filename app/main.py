@@ -1,8 +1,13 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from app.core.websocket.pubsub import pubsub
 from app.modules.auth.router import router as auth_router
+from app.modules.chat.router import router as chat_router
+from app.modules.realtime.router import router as realtime_router
 from app.modules.search.router import router as search_router
 from app.modules.comments.router import router as comments_router
 from app.modules.follows.router import router as follows_router
@@ -13,12 +18,25 @@ from app.modules.saves.router import router as saves_router
 from app.modules.uploads.router import router as uploads_router
 from app.modules.users.router import router as users_router
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Open the shared Redis connection and start the pub/sub reader that bridges
+    # cross-instance WebSocket delivery to locally-connected sockets.
+    await pubsub.start()
+    try:
+        yield
+    finally:
+        await pubsub.stop()
+
+
 app = FastAPI(
     title="BlackClap API",
     version="1.0.0",
     docs_url="/api/v1/docs",
     redoc_url="/api/v1/redoc",
     openapi_url="/api/v1/openapi.json",
+    lifespan=lifespan,
 )
 
 # CORS Middleware
@@ -44,6 +62,8 @@ app.include_router(likes_router, prefix="/api/v1")
 app.include_router(comments_router, prefix="/api/v1")
 app.include_router(saves_router, prefix="/api/v1")
 app.include_router(search_router, prefix="/api/v1")
+app.include_router(chat_router, prefix="/api/v1")
+app.include_router(realtime_router, prefix="/api/v1")
 
 
 @app.get("/")
