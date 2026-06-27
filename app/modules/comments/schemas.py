@@ -32,5 +32,9 @@ class CommentResponse(BaseModel):
 
 class CommentsListResponse(BaseModel):
     comments: list[CommentResponse]
-    total: int
-    has_more: bool
+    next_cursor: str | None  # opaque cursor; None means no more pages
+
+
+class RepliesListResponse(BaseModel):
+    replies: list[CommentResponse]
+    next_cursor: str | None
