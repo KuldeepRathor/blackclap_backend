@@ -1,4 +1,5 @@
 from celery import Celery
+from celery.schedules import crontab
 
 from app.core.config.settings import settings
 
@@ -16,6 +17,15 @@ celery_app.conf.update(
     enable_utc=True,
     task_track_started=True,
 )
+
+# Periodic jobs (run by `celery -A app.workers.celery_app beat`).
+celery_app.conf.beat_schedule = {
+    # Permanently purge/anonymize accounts past the soft-delete grace period.
+    "purge-deleted-accounts-daily": {
+        "task": "account.purge_deleted_accounts",
+        "schedule": crontab(hour=3, minute=0),  # daily at 03:00 (Asia/Kolkata)
+    },
+}
 
 # Autodiscover tasks from registered modules and worker tasks
 celery_app.autodiscover_tasks(

@@ -69,3 +69,37 @@ def generate_sas_upload_url(
     blob_url = f"{base}?{read_sas_token}"
 
     return upload_url, blob_url
+
+
+def delete_blob(container: str, blob_name: str) -> bool:
+    """
+    Delete a single blob. Returns True if it existed and was deleted, False if
+    it was already gone. Never raises on a missing blob (idempotent).
+    """
+    client = _get_client()
+    blob_client = client.get_blob_client(container=container, blob=blob_name)
+    try:
+        blob_client.delete_blob()
+        return True
+    except Exception:
+        # Missing blob / already deleted — treat as a no-op so callers stay idempotent.
+        return False
+
+
+def delete_blobs_by_prefix(container: str, prefix: str) -> int:
+    """
+    Delete every blob in `container` whose name starts with `prefix`.
+    Used to purge all of a user's uploads (blobs are namespaced
+    `f"{upload_type}/{user_id}/..."`). Returns the number of blobs deleted.
+    """
+    client = _get_client()
+    container_client = client.get_container_client(container)
+    deleted = 0
+    for blob in container_client.list_blobs(name_starts_with=prefix):
+        try:
+            container_client.delete_blob(blob.name)
+            deleted += 1
+        except Exception:
+            # Skip blobs that vanish mid-iteration; keep the purge best-effort.
+            continue
+    return deleted
