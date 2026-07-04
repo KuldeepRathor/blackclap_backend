@@ -17,19 +17,21 @@ cd /home/azureuser/apps/blackclap_backend
 
 ### Create production env file
 
+`docker-compose.yml` loads `env_file: - .env` — the `api` and `worker` containers read the **in-repo `.env`**, not the SSOT file one directory above. Create it directly in the repo on the VM:
+
 ```bash
-nano ../ssot.production.env
+nano /home/azureuser/apps/blackclap_backend/.env
 ```
 
-Required values:
+Required values — `db` and `redis` are the Compose **service names**, not `localhost`, and Postgres's internal port is `5432` (the `5434` host mapping in `docker-compose.yml` is only for connecting from outside Docker):
 
 ```env
 APP_NAME=BlackClap
 DEBUG=False
-DATABASE_URL=postgresql+asyncpg://<user>:<pass>@<host>:5432/blackclap
-REDIS_URL=redis://localhost:6379/0
-CELERY_BROKER_URL=redis://localhost:6379/1
-CELERY_RESULT_BACKEND=redis://localhost:6379/1
+DATABASE_URL=postgresql+asyncpg://<user>:<pass>@db:5432/blackclap
+REDIS_URL=redis://redis:6379/0
+CELERY_BROKER_URL=redis://redis:6379/1
+CELERY_RESULT_BACKEND=redis://redis:6379/1
 JWT_SECRET_KEY=<min-32-char-random-string>
 AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=...;AccountKey=...
 AZURE_STORAGE_ACCOUNT_NAME=blackclapmedia

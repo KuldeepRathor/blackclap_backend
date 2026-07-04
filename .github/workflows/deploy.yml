@@ -54,7 +54,7 @@ jobs:
         run: docker compose run --rm api alembic upgrade head
 
       - name: Restart services
-        run: docker compose up -d
+        run: docker compose up -d --remove-orphans
 
       - name: Health check
         run: |
