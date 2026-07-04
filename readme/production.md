@@ -126,7 +126,32 @@ Notes:
    sudo ./svc.sh stop && sudo ./svc.sh start
    ```
 
-4. Push any commit to `main` and watch the Actions tab — the runner should pick up the deploy job.
+4. **Give the VM's clone SSH access to the repo (deploy key)** — the automated `git fetch` has no terminal to prompt for HTTPS credentials, so switch the remote to SSH with a read-only deploy key:
+
+   ```bash
+   # as azureuser on the VM
+   ssh-keygen -t ed25519 -f ~/.ssh/blackclap_deploy -N ""
+   cat ~/.ssh/blackclap_deploy.pub
+   ```
+
+   Copy the printed public key, then in GitHub: repo → Settings → Deploy keys → Add deploy key → paste it, leave "Allow write access" **unchecked** (read-only is all deploys need).
+
+   ```bash
+   # ~/.ssh/config on the VM
+   cat >> ~/.ssh/config <<'EOF'
+   Host github.com
+       IdentityFile ~/.ssh/blackclap_deploy
+       IdentitiesOnly yes
+   EOF
+   chmod 600 ~/.ssh/config
+
+   cd /home/azureuser/apps/blackclap_backend
+   git remote set-url origin git@github.com:KuldeepRathor/blackclap_backend.git
+   ssh -T git@github.com          # should greet you by repo access, not prompt for a password
+   git fetch origin main          # sanity check before the next pipeline run
+   ```
+
+5. Push any commit to `main` and watch the Actions tab — the runner should pick up the deploy job.
 
 The manual steps below remain valid as a **fallback** if the pipeline is ever down.
 
