@@ -39,9 +39,7 @@ async def reactivate_account(db: AsyncSession, user: User) -> None:
     await db.commit()
 
 
-async def request_account_deletion(
-    db: AsyncSession, email: str, password: str
-) -> bool:
+async def request_account_deletion(db: AsyncSession, email: str, password: str) -> bool:
     """
     Verify credentials and soft-delete the matching account.
 
