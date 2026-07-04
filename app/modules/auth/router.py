@@ -18,6 +18,7 @@ from app.core.security.otp import (
     verify_reset_code,
 )
 from app.core.security.password import hash_password, verify_password
+from app.modules.account.service import is_within_grace_period, reactivate_account
 from app.modules.auth.schemas import (
     AuthResponse,
     ForgotPasswordRequest,
@@ -123,10 +124,15 @@ async def login(user_in: UserLogin, db: AsyncSession = Depends(get_db)) -> Any:
         )
 
     if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User account is inactive",
-        )
+        # A soft-deleted account can be recovered by logging in within the grace
+        # period; otherwise it stays locked (pending permanent deletion).
+        if is_within_grace_period(user):
+            await reactivate_account(db, user)
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User account is inactive",
+            )
 
     # Generate JWT tokens
     access_token = create_access_token(data={"sub": str(user.id)})
@@ -166,10 +172,14 @@ async def login_for_access_token(
         )
 
     if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User account is inactive",
-        )
+        # Reactivate a soft-deleted account on login within the grace period.
+        if is_within_grace_period(user):
+            await reactivate_account(db, user)
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User account is inactive",
+            )
 
     # Generate JWT tokens
     access_token = create_access_token(data={"sub": str(user.id)})

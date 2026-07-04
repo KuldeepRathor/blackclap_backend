@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -154,6 +155,26 @@ async def update_my_profile(
     return await _build_profile_response(
         current_user, db, requesting_user_id=current_user.id
     )
+
+
+@router.delete("/me", status_code=status.HTTP_200_OK)
+async def delete_my_account(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """
+    Soft-delete the authenticated user's account (in-app deletion).
+
+    Deactivates immediately (all authenticated access stops) and starts the
+    grace period; logging back in within it restores the account, otherwise the
+    scheduled purge permanently removes/anonymizes the data. Mirrors the public
+    web flow in the `account` module.
+    """
+    current_user.is_active = False
+    current_user.deleted_at = datetime.now(timezone.utc)
+    db.add(current_user)
+    await db.commit()
+    return {"detail": "Your account has been scheduled for deletion."}
 
 
 @router.get("/{username}", response_model=UserProfileResponse)
