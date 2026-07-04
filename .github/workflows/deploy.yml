@@ -38,28 +38,23 @@ jobs:
     needs: checks
     runs-on: [self-hosted, blackclap-prod]
     environment: production
+    defaults:
+      run:
+        working-directory: /home/azureuser/apps/blackclap_backend
     steps:
       - name: Update code
-        working-directory: /home/azureuser/apps/blackclap_backend
         run: |
           git fetch origin main
           git reset --hard origin/main
 
-      - name: Install dependencies
-        working-directory: /home/azureuser/apps/blackclap_backend
-        run: |
-          source venv/bin/activate
-          pip install -e .
+      - name: Build updated images
+        run: docker compose build
 
       - name: Run database migrations
-        working-directory: /home/azureuser/apps/blackclap_backend
-        run: |
-          source venv/bin/activate
-          ENV=production alembic upgrade head
+        run: docker compose run --rm api alembic upgrade head
 
       - name: Restart services
-        run: |
-          sudo systemctl restart blackclap-api blackclap-worker
+        run: docker compose up -d
 
       - name: Health check
         run: |
@@ -73,5 +68,5 @@ jobs:
             sleep 3
           done
           echo "Health check FAILED after 30s ❌"
-          sudo systemctl status blackclap-api --no-pager -l | tail -30
+          docker compose logs --tail=50 api
           exit 1

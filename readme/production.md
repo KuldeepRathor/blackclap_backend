@@ -8,13 +8,11 @@ ssh -i ~/.ssh/blackclap-api-vm_key.pem azureuser@<AZURE_PUBLIC_IP>
 
 ### First-time setup on server
 
-```bash
-git clone https://github.com/KuldeepRathor/blackclap_backend.git
-cd blackclap_backend
+The VM runs the stack via Docker Compose (`api`, `worker`, `db`, `redis` — see [docker-compose.yml](../docker-compose.yml)), cloned at `/home/azureuser/apps/blackclap_backend`.
 
-python3 -m venv venv
-source venv/bin/activate
-pip install -e .
+```bash
+git clone https://github.com/KuldeepRathor/blackclap_backend.git /home/azureuser/apps/blackclap_backend
+cd /home/azureuser/apps/blackclap_backend
 ```
 
 ### Create production env file
@@ -37,59 +35,17 @@ AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=...;A
 AZURE_STORAGE_ACCOUNT_NAME=blackclapmedia
 ```
 
+### Build and start the stack
+
+```bash
+docker compose build
+docker compose up -d
+```
+
 ### Run migrations
 
 ```bash
-ENV=production alembic upgrade head
-```
-
-### Start API (systemd)
-
-```bash
-# /etc/systemd/system/blackclap-api.service
-[Unit]
-Description=BlackClap API
-After=network.target
-
-[Service]
-User=azureuser
-WorkingDirectory=/home/azureuser/blackclap_backend
-Environment=ENV=production
-ExecStart=/home/azureuser/blackclap_backend/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
-```
-
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable blackclap-api
-sudo systemctl start blackclap-api
-```
-
-### Start Celery worker (systemd)
-
-```bash
-# /etc/systemd/system/blackclap-worker.service
-[Unit]
-Description=BlackClap Celery Worker
-After=network.target
-
-[Service]
-User=azureuser
-WorkingDirectory=/home/azureuser/blackclap_backend
-Environment=ENV=production
-ExecStart=/home/azureuser/blackclap_backend/venv/bin/celery -A app.workers.celery_app worker --loglevel=info
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
-```
-
-```bash
-sudo systemctl enable blackclap-worker
-sudo systemctl start blackclap-worker
+docker compose run --rm api alembic upgrade head
 ```
 
 ### Nginx config
@@ -132,10 +88,11 @@ push to main
     │    ruff check . / ruff format --check . / mypy --strict app
     │
     └─ deploy job (self-hosted runner ON the Azure VM, runs only if checks pass)
+         cd /home/azureuser/apps/blackclap_backend
          git fetch + git reset --hard origin/main
-         pip install -e .
-         ENV=production alembic upgrade head
-         sudo systemctl restart blackclap-api blackclap-worker
+         docker compose build
+         docker compose run --rm api alembic upgrade head
+         docker compose up -d
          curl health check (retries 10× before failing)
 ```
 
@@ -143,7 +100,8 @@ Notes:
 
 - The deploy job runs **on the VM itself** via a self-hosted runner, so the NSG stays locked down (no SSH from GitHub needed) and no SSH secrets are stored in GitHub.
 - The deploy uses `git reset --hard origin/main` (not `git pull`) so the VM clone always matches `main` exactly, even if it was edited manually.
-- Migrations run automatically. Migration files are generated **locally** (`alembic revision --autogenerate`), committed, and pushed — production only applies them with `alembic upgrade head`, it never generates new ones.
+- Migrations run automatically via a throwaway `api` container (`docker compose run --rm`), built from the freshly-updated image, before the running containers are recreated. Migration files are generated **locally** (`alembic revision --autogenerate`), committed, and pushed — production only applies them with `alembic upgrade head`, it never generates new ones.
+- `docker compose up -d` recreates any container whose image or config changed; unaffected services (db, redis) are left running.
 - Overlapping deploys queue (concurrency group `production-deploy`), they never race.
 - Manual re-deploy: GitHub → Actions → "CI / Deploy to Production" → Run workflow.
 
@@ -160,11 +118,12 @@ Notes:
    sudo ./svc.sh status
    ```
 
-3. **Allow passwordless service restarts** (skip if `azureuser` already has full NOPASSWD sudo):
+3. **Make sure `azureuser` can run Docker without a password prompt** — add it to the `docker` group (skip if already a member):
 
    ```bash
-   echo 'azureuser ALL=(root) NOPASSWD: /usr/bin/systemctl restart blackclap-api blackclap-worker, /usr/bin/systemctl restart blackclap-api, /usr/bin/systemctl restart blackclap-worker, /usr/bin/systemctl status blackclap-api --no-pager -l' | sudo tee /etc/sudoers.d/blackclap-deploy
-   sudo chmod 440 /etc/sudoers.d/blackclap-deploy
+   sudo usermod -aG docker azureuser
+   # then restart the runner service (or re-login) for the group change to take effect
+   sudo ./svc.sh stop && sudo ./svc.sh start
    ```
 
 4. Push any commit to `main` and watch the Actions tab — the runner should pick up the deploy job.
@@ -174,26 +133,24 @@ The manual steps below remain valid as a **fallback** if the pipeline is ever do
 ### Deploy a code update (manual fallback)
 
 ```bash
+cd /home/azureuser/apps/blackclap_backend
 git pull origin main
-source venv/bin/activate
-pip install -e .                        # only if dependencies changed
-ENV=production alembic upgrade head     # only if models changed
-sudo systemctl restart blackclap-api
-sudo systemctl restart blackclap-worker
+docker compose build
+docker compose run --rm api alembic upgrade head   # only if models changed
+docker compose up -d
 ```
 
 ### Check service status
 
 ```bash
-sudo systemctl status blackclap-api
-sudo systemctl status blackclap-worker
+docker compose ps
 ```
 
 ### Tail production logs
 
 ```bash
-sudo journalctl -u blackclap-api -f
-sudo journalctl -u blackclap-worker -f
+docker compose logs -f api
+docker compose logs -f worker
 ```
 
 ### Health check
