@@ -9,6 +9,7 @@ Both the server (publishing) and the realtime router (parsing inbound frames)
 use these helpers so the contract stays in one place. The Flutter client mirrors
 these `type` strings in lib/models/chat_socket_event.dart.
 """
+
 from typing import Any
 
 # Server -> client
@@ -52,11 +53,17 @@ def message_read(
 def typing(conversation_id: str, user_id: str, is_typing: bool) -> dict[str, Any]:
     return envelope(
         EVENT_TYPING,
-        {"conversation_id": conversation_id, "user_id": user_id, "is_typing": is_typing},
+        {
+            "conversation_id": conversation_id,
+            "user_id": user_id,
+            "is_typing": is_typing,
+        },
     )
 
 
-def presence(user_id: str, online: bool, last_seen: str | None = None) -> dict[str, Any]:
+def presence(
+    user_id: str, online: bool, last_seen: str | None = None
+) -> dict[str, Any]:
     return envelope(
         EVENT_PRESENCE,
         {"user_id": user_id, "online": online, "last_seen": last_seen},

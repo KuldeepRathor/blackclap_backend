@@ -17,7 +17,9 @@ async def search_endpoint(
     q: str = Query(..., min_length=2, max_length=100, description="Search query"),
     type: Literal["all", "users", "posts"] = Query(
         default="all",
-        description="Result type: all (preview), users (paginated), posts (cursor-paginated)",
+        description=(
+            "Result type: all (preview), users (paginated), posts (cursor-paginated)"
+        ),
     ),
     limit: int = Query(default=20, ge=1, le=50),
     offset: int = Query(default=0, ge=0, description="Page offset for type=users"),

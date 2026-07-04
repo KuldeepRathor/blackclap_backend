@@ -5,6 +5,7 @@ Knows only about sockets connected to *this* server instance. Cross-instance
 delivery is handled by the Redis pub/sub bridge in `pubsub.py`, which calls
 `send_local` on whichever instance actually holds the recipient's socket.
 """
+
 import asyncio
 import uuid
 from typing import Any

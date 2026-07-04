@@ -28,7 +28,10 @@ def get_upload_url(user_id: uuid.UUID, req: UploadUrlRequest) -> UploadUrlRespon
     if ext not in allowed:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Extension .{ext} not allowed for {req.upload_type}. Allowed: {allowed}",
+            detail=(
+                f"Extension .{ext} not allowed for {req.upload_type}. "
+                f"Allowed: {allowed}"
+            ),
         )
 
     content_type = CONTENT_TYPE_MAP[ext]

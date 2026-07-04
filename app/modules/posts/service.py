@@ -32,8 +32,9 @@ async def _fetch_tagged_users_map(
         return {}
 
     tag_rows = await db.execute(
-        select(PostTag.post_id, PostTag.tagged_user_id)
-        .where(PostTag.post_id.in_(post_ids), PostTag.deleted_at.is_(None))
+        select(PostTag.post_id, PostTag.tagged_user_id).where(
+            PostTag.post_id.in_(post_ids), PostTag.deleted_at.is_(None)
+        )
     )
     tag_pairs = [(row.post_id, row.tagged_user_id) for row in tag_rows]
     if not tag_pairs:
@@ -41,8 +42,9 @@ async def _fetch_tagged_users_map(
 
     tagged_user_ids = list({uid for _, uid in tag_pairs})
     user_rows = await db.execute(
-        select(User.id, User.username, User.display_name, User.avatar_url)
-        .where(User.id.in_(tagged_user_ids))
+        select(User.id, User.username, User.display_name, User.avatar_url).where(
+            User.id.in_(tagged_user_ids)
+        )
     )
     users_map = {row.id: row for row in user_rows}
 
@@ -115,8 +117,9 @@ async def _enrich_posts_base(
     comments_map: dict[uuid.UUID, int] = {row.post_id: row.cnt for row in comments_rows}
 
     users_rows = await db.execute(
-        select(User.id, User.username, User.display_name, User.avatar_url)
-        .where(User.id.in_(user_ids))
+        select(User.id, User.username, User.display_name, User.avatar_url).where(
+            User.id.in_(user_ids)
+        )
     )
     users_map = {row.id: row for row in users_rows}
 
@@ -138,9 +141,15 @@ async def _enrich_posts_base(
             tagged_users=tags_map.get(post.id, []),
             created_at=post.created_at,
             updated_at=post.updated_at,
-            username=users_map[post.user_id].username if post.user_id in users_map else "",
-            display_name=users_map[post.user_id].display_name if post.user_id in users_map else None,
-            avatar_url=users_map[post.user_id].avatar_url if post.user_id in users_map else None,
+            username=users_map[post.user_id].username
+            if post.user_id in users_map
+            else "",
+            display_name=users_map[post.user_id].display_name
+            if post.user_id in users_map
+            else None,
+            avatar_url=users_map[post.user_id].avatar_url
+            if post.user_id in users_map
+            else None,
         )
         for post in posts
     ]
@@ -151,7 +160,7 @@ async def _enrich_to_feed_responses(
     requesting_user_id: uuid.UUID,
     db: AsyncSession,
 ) -> list[FeedPostResponse]:
-    """Enrich a list of Post objects with counts, interaction flags, author info, and tags."""
+    """Enrich Post objects with counts, interaction flags, author info, and tags."""
     if not posts:
         return []
 
@@ -189,8 +198,9 @@ async def _enrich_to_feed_responses(
     saved_set: set[uuid.UUID] = {row.post_id for row in saved_rows}
 
     users_rows = await db.execute(
-        select(User.id, User.username, User.display_name, User.avatar_url)
-        .where(User.id.in_(user_ids))
+        select(User.id, User.username, User.display_name, User.avatar_url).where(
+            User.id.in_(user_ids)
+        )
     )
     users_map = {row.id: row for row in users_rows}
 
@@ -212,9 +222,15 @@ async def _enrich_to_feed_responses(
             tagged_users=tags_map.get(post.id, []),
             created_at=post.created_at,
             updated_at=post.updated_at,
-            username=users_map[post.user_id].username if post.user_id in users_map else "",
-            display_name=users_map[post.user_id].display_name if post.user_id in users_map else None,
-            avatar_url=users_map[post.user_id].avatar_url if post.user_id in users_map else None,
+            username=users_map[post.user_id].username
+            if post.user_id in users_map
+            else "",
+            display_name=users_map[post.user_id].display_name
+            if post.user_id in users_map
+            else None,
+            avatar_url=users_map[post.user_id].avatar_url
+            if post.user_id in users_map
+            else None,
         )
         for post in posts
     ]
@@ -308,7 +324,9 @@ async def get_reels(
     cached_raw = await cache.get(cache_key)
     if cached_raw is not None:
         try:
-            base_responses = [FeedPostResponse.model_validate(d) for d in json.loads(cached_raw)]
+            base_responses = [
+                FeedPostResponse.model_validate(d) for d in json.loads(cached_raw)
+            ]
         except Exception:
             base_responses = None  # stale/corrupt — fall through to DB
 
@@ -358,7 +376,9 @@ async def get_reels(
     saved_set: set[uuid.UUID] = {row.post_id for row in saved_rows}
 
     return [
-        r.model_copy(update={"is_liked": r.id in liked_set, "is_saved": r.id in saved_set})
+        r.model_copy(
+            update={"is_liked": r.id in liked_set, "is_saved": r.id in saved_set}
+        )
         for r in base_responses
     ]
 
@@ -481,20 +501,18 @@ async def create_post(
     # A new video post invalidates the cached reel feed
     if req.media_type == MediaType.video:
         from app.core.cache.redis_cache import cache
+
         await cache.delete_pattern("reels:base:*")
 
-    stmt = (
-        select(Post)
-        .where(Post.id == post.id)
-        .options(selectinload(Post.media))
-    )
+    stmt = select(Post).where(Post.id == post.id).options(selectinload(Post.media))
     result = await db.execute(stmt)
     post = result.scalar_one()
 
     if req.tagged_user_ids:
         user_rows = await db.execute(
-            select(User.id, User.username, User.display_name, User.avatar_url)
-            .where(User.id.in_(req.tagged_user_ids))
+            select(User.id, User.username, User.display_name, User.avatar_url).where(
+                User.id.in_(req.tagged_user_ids)
+            )
         )
         tagged_users = [
             TaggedUserResponse(

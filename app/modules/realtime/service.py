@@ -5,7 +5,9 @@ These delegate to the chat service for persistence and to the Redis publisher
 for fan-out, so there is a single source of truth regardless of whether an
 action arrives over REST or WS.
 """
+
 import uuid
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -34,7 +36,7 @@ async def _other_participant_ids(
     return [i for i in ids if i != user_id]
 
 
-async def handle_typing(user: User, data: dict, db: AsyncSession) -> None:
+async def handle_typing(user: User, data: dict[str, Any], db: AsyncSession) -> None:
     raw = data.get("conversation_id")
     try:
         conversation_id = uuid.UUID(str(raw))
@@ -48,7 +50,7 @@ async def handle_typing(user: User, data: dict, db: AsyncSession) -> None:
     await pubsub.publish_to_users(others, payload)
 
 
-async def handle_read(user: User, data: dict, db: AsyncSession) -> None:
+async def handle_read(user: User, data: dict[str, Any], db: AsyncSession) -> None:
     try:
         conversation_id = uuid.UUID(str(data.get("conversation_id")))
         last_read_message_id = uuid.UUID(str(data.get("last_read_message_id")))

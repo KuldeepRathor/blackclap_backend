@@ -84,8 +84,7 @@ def main():
 
     # 1. Start FastAPI app (uvicorn app.main:app)
     api_command = (
-        f"{python_exe} -m uvicorn app.main:app "
-        f"--host 0.0.0.0 --port {port} --reload"
+        f"{python_exe} -m uvicorn app.main:app --host 0.0.0.0 --port {port} --reload"
     )
     print(f"[*] Starting FastAPI API Service on port {port}...")
     try:
@@ -102,7 +101,7 @@ def main():
 
     # 2. Start Celery worker (celery -A app.workers.celery_app worker --loglevel=info)
     celery_command = (
-        f"{python_exe} -m celery -A app.workers.celery_app " f"worker --loglevel=info"
+        f"{python_exe} -m celery -A app.workers.celery_app worker --loglevel=info"
     )
     print("[*] Starting Celery worker...")
     try:

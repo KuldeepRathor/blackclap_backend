@@ -21,6 +21,7 @@ class ConversationType(str, Enum):
 # Shared snippets
 # ---------------------------------------------------------------------------
 
+
 class UserSnippet(BaseModel):
     """Minimal author/participant projection embedded in chat responses."""
 
@@ -43,6 +44,7 @@ class ParticipantInfo(BaseModel):
 # ---------------------------------------------------------------------------
 # Messages
 # ---------------------------------------------------------------------------
+
 
 class MessageResponse(BaseModel):
     id: uuid.UUID
@@ -89,6 +91,7 @@ class SendMessageRequest(BaseModel):
 # Conversations
 # ---------------------------------------------------------------------------
 
+
 class ConversationResponse(BaseModel):
     id: uuid.UUID
     type: str = ConversationType.direct.value
@@ -120,6 +123,7 @@ class CreateConversationRequest(BaseModel):
 # ---------------------------------------------------------------------------
 # Read state
 # ---------------------------------------------------------------------------
+
 
 class MarkReadRequest(BaseModel):
     last_read_message_id: uuid.UUID

@@ -7,6 +7,7 @@ JWT (same secret/format issued by app.modules.auth). The token is passed as a
 query param (`?token=...`) because browsers/most WS clients cannot set an
 Authorization header on the upgrade request.
 """
+
 import uuid
 from typing import Optional
 

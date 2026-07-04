@@ -5,6 +5,7 @@ table. We store a SHA-256 hash of the code (not the raw code) so a Redis dump
 never exposes usable codes, alongside an attempt counter and a per-email send
 counter for rate limiting.
 """
+
 import hashlib
 import secrets
 

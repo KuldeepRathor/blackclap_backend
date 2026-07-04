@@ -30,10 +30,14 @@ async def list_comments_endpoint(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> CommentsListResponse:
-    return await get_comments(post_id=post_id, db=db, limit=limit, after_cursor=after_cursor)
+    return await get_comments(
+        post_id=post_id, db=db, limit=limit, after_cursor=after_cursor
+    )
 
 
-@router.get("/{post_id}/comments/{comment_id}/replies", response_model=RepliesListResponse)
+@router.get(
+    "/{post_id}/comments/{comment_id}/replies", response_model=RepliesListResponse
+)
 async def list_replies_endpoint(
     post_id: uuid.UUID,
     comment_id: uuid.UUID,
@@ -43,7 +47,11 @@ async def list_replies_endpoint(
     db: AsyncSession = Depends(get_db),
 ) -> RepliesListResponse:
     return await get_replies(
-        post_id=post_id, comment_id=comment_id, db=db, limit=limit, after_cursor=after_cursor
+        post_id=post_id,
+        comment_id=comment_id,
+        db=db,
+        limit=limit,
+        after_cursor=after_cursor,
     )
 
 
@@ -61,7 +69,9 @@ async def add_comment_endpoint(
     return await add_comment(post_id=post_id, user_id=current_user.id, req=req, db=db)
 
 
-@router.delete("/{post_id}/comments/{comment_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{post_id}/comments/{comment_id}", status_code=status.HTTP_204_NO_CONTENT
+)
 async def delete_comment_endpoint(
     post_id: uuid.UUID,
     comment_id: uuid.UUID,

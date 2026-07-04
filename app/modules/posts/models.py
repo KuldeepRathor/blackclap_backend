@@ -34,7 +34,9 @@ class Post(BaseModel):
     )
 
     def __repr__(self) -> str:
-        return f"<Post id={self.id} user_id={self.user_id} media_type={self.media_type}>"
+        return (
+            f"<Post id={self.id} user_id={self.user_id} media_type={self.media_type}>"
+        )
 
 
 class PostMedia(BaseModel):

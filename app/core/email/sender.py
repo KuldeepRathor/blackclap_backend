@@ -8,6 +8,7 @@ call sites.
 Dev fallback: if SMTP_HOST is not configured, emails are logged instead of sent
 so the reset flow stays testable locally.
 """
+
 import logging
 import ssl
 from email.message import EmailMessage

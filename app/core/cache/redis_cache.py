@@ -4,7 +4,9 @@ Simple Redis cache for read-heavy API endpoints (e.g. reels feed).
 Separate from the pub/sub Redis connection used by WebSockets so that
 cache failures never impact real-time delivery.
 """
+
 import logging
+from typing import cast
 
 import redis.asyncio as aioredis
 
@@ -31,7 +33,8 @@ class RedisCache:
         if self._redis is None:
             return None
         try:
-            return await self._redis.get(key)
+            # decode_responses=True guarantees str, but redis-py types it as bytes
+            return cast(str | None, await self._redis.get(key))
         except Exception:
             logger.exception("RedisCache.get(%s) failed", key)
             return None

@@ -16,7 +16,9 @@ from app.modules.users.schemas import UserProfileResponse, UserUpdate
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
-_oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/token", auto_error=False)
+_oauth2_scheme_optional = OAuth2PasswordBearer(
+    tokenUrl="/api/v1/auth/token", auto_error=False
+)
 
 
 async def _get_optional_user(
@@ -43,15 +45,26 @@ async def _build_profile_response(
     db: AsyncSession,
     requesting_user_id: Optional[uuid.UUID] = None,
 ) -> UserProfileResponse:
-    posts_count = await db.scalar(
-        select(func.count(Post.id)).where(Post.user_id == user.id, Post.deleted_at.is_(None))
-    ) or 0
-    followers_count = await db.scalar(
-        select(func.count(Follow.id)).where(Follow.followed_id == user.id)
-    ) or 0
-    following_count = await db.scalar(
-        select(func.count(Follow.id)).where(Follow.follower_id == user.id)
-    ) or 0
+    posts_count = (
+        await db.scalar(
+            select(func.count(Post.id)).where(
+                Post.user_id == user.id, Post.deleted_at.is_(None)
+            )
+        )
+        or 0
+    )
+    followers_count = (
+        await db.scalar(
+            select(func.count(Follow.id)).where(Follow.followed_id == user.id)
+        )
+        or 0
+    )
+    following_count = (
+        await db.scalar(
+            select(func.count(Follow.id)).where(Follow.follower_id == user.id)
+        )
+        or 0
+    )
 
     is_following = False
     if requesting_user_id and requesting_user_id != user.id:
@@ -86,7 +99,9 @@ async def get_my_profile(
     db: AsyncSession = Depends(get_db),
 ) -> Any:
     """Retrieve detailed profile information of the currently authenticated user."""
-    return await _build_profile_response(current_user, db, requesting_user_id=current_user.id)
+    return await _build_profile_response(
+        current_user, db, requesting_user_id=current_user.id
+    )
 
 
 @router.patch("/me", response_model=UserProfileResponse)
@@ -99,7 +114,9 @@ async def update_my_profile(
     update_data = user_in.model_dump(exclude_unset=True)
 
     if not update_data:
-        return await _build_profile_response(current_user, db, requesting_user_id=current_user.id)
+        return await _build_profile_response(
+            current_user, db, requesting_user_id=current_user.id
+        )
 
     checks = []
     if "username" in update_data and update_data["username"] != current_user.username:
@@ -113,7 +130,10 @@ async def update_my_profile(
         existing_user = result.scalar_one_or_none()
 
         if existing_user:
-            if "username" in update_data and existing_user.username == update_data["username"]:
+            if (
+                "username" in update_data
+                and existing_user.username == update_data["username"]
+            ):
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="This username is already taken.",
@@ -131,7 +151,9 @@ async def update_my_profile(
     await db.commit()
     await db.refresh(current_user)
 
-    return await _build_profile_response(current_user, db, requesting_user_id=current_user.id)
+    return await _build_profile_response(
+        current_user, db, requesting_user_id=current_user.id
+    )
 
 
 @router.get("/{username}", response_model=UserProfileResponse)
@@ -146,7 +168,9 @@ async def get_public_profile(
     user = result.scalar_one_or_none()
 
     if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
 
     if not user.is_active:
         raise HTTPException(
@@ -154,4 +178,6 @@ async def get_public_profile(
         )
 
     requesting_user_id = requesting_user.id if requesting_user else None
-    return await _build_profile_response(user, db, requesting_user_id=requesting_user_id)
+    return await _build_profile_response(
+        user, db, requesting_user_id=requesting_user_id
+    )

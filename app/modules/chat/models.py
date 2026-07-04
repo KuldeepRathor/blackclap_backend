@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import (
     Boolean,
@@ -16,6 +17,9 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.shared.models.base import BaseModel
+
+if TYPE_CHECKING:
+    from app.modules.users.models import User
 
 
 class Conversation(BaseModel):
@@ -51,12 +55,16 @@ class Conversation(BaseModel):
     #     has to scan the messages table. Updated transactionally on send. ---
     # Intentionally NOT a ForeignKey: a hard FK both ways (messages -> conversation
     # and conversation -> last message) creates a circular dependency.
-    last_message_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    last_message_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), nullable=True
+    )
     last_message_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True, index=True
     )
     last_message_preview: Mapped[str | None] = mapped_column(String(200), nullable=True)
-    last_message_sender_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    last_message_sender_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), nullable=True
+    )
 
     participants: Mapped[list["ConversationParticipant"]] = relationship(
         "ConversationParticipant",
@@ -106,13 +114,23 @@ class ConversationParticipant(BaseModel):
     role: Mapped[str] = mapped_column(String(10), nullable=False, default="member")
 
     # --- Per-user read state ---
-    last_read_message_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
-    last_read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    unread_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    last_read_message_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), nullable=True
+    )
+    last_read_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    unread_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
 
     # --- Group membership lifecycle (used in Phase 3; harmless to add now) ---
-    joined_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    left_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    joined_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    left_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     is_muted: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
     )
@@ -120,7 +138,7 @@ class ConversationParticipant(BaseModel):
     conversation: Mapped["Conversation"] = relationship(
         "Conversation", back_populates="participants"
     )
-    user: Mapped["User"] = relationship("User", lazy="joined")  # noqa: F821
+    user: Mapped["User"] = relationship("User", lazy="joined")
 
     __table_args__ = (
         UniqueConstraint("conversation_id", "user_id", name="uq_participant_pair"),
@@ -166,13 +184,15 @@ class Message(BaseModel):
     media_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     media_type: Mapped[str | None] = mapped_column(String(20), nullable=True)
     thumbnail_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
-    media_metadata: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    media_metadata: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
 
     # Client-generated idempotency key: dedups retries and lets the client match
     # its optimistic local message to the server-persisted one.
-    client_message_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    client_message_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), nullable=True
+    )
 
-    sender: Mapped["User"] = relationship("User", lazy="joined")  # noqa: F821
+    sender: Mapped["User"] = relationship("User", lazy="joined")
 
     __table_args__ = (
         # THE message-history index: page a conversation's messages newest-first.
@@ -188,4 +208,7 @@ class Message(BaseModel):
     )
 
     def __repr__(self) -> str:
-        return f"<Message id={self.id} conv={self.conversation_id} sender={self.sender_id}>"
+        return (
+            f"<Message id={self.id} conv={self.conversation_id} "
+            f"sender={self.sender_id}>"
+        )

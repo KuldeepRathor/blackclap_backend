@@ -9,10 +9,14 @@ from app.modules.likes.schemas import LikeResponse
 from app.modules.posts.models import Post
 
 
-async def toggle_like(post_id: uuid.UUID, user_id: uuid.UUID, db: AsyncSession) -> LikeResponse:
+async def toggle_like(
+    post_id: uuid.UUID, user_id: uuid.UUID, db: AsyncSession
+) -> LikeResponse:
     post = await db.get(Post, post_id)
     if post is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Post not found"
+        )
 
     existing = await db.scalar(
         select(PostLike).where(PostLike.post_id == post_id, PostLike.user_id == user_id)
@@ -31,4 +35,6 @@ async def toggle_like(post_id: uuid.UUID, user_id: uuid.UUID, db: AsyncSession) 
         select(func.count()).where(PostLike.post_id == post_id)
     )
 
-    return LikeResponse(post_id=post_id, likes_count=likes_count or 0, is_liked=is_liked)
+    return LikeResponse(
+        post_id=post_id, likes_count=likes_count or 0, is_liked=is_liked
+    )

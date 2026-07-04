@@ -43,6 +43,7 @@ async def _send_reset_email(email: str, code: str) -> None:
     subject, text, html = password_reset_email(code, ttl_minutes)
     await email_sender.send(to=email, subject=subject, text=text, html=html)
 
+
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 

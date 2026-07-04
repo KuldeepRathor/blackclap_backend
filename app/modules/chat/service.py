@@ -24,10 +24,10 @@ from app.modules.chat.schemas import (
 )
 from app.modules.users.models import User
 
-
 # ---------------------------------------------------------------------------
 # Cursor helpers — encode (timestamp ISO string, id). Same scheme as comments.
 # ---------------------------------------------------------------------------
+
 
 def _encode_cursor(ts: datetime, row_id: uuid.UUID) -> str:
     raw = f"{ts.isoformat()}|{row_id}"
@@ -40,7 +40,9 @@ def _decode_cursor(cursor: str) -> tuple[datetime, uuid.UUID]:
         ts_str, id_str = raw.split("|", 1)
         return datetime.fromisoformat(ts_str), uuid.UUID(id_str)
     except Exception:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid cursor")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid cursor"
+        )
 
 
 def _dm_key(a: uuid.UUID, b: uuid.UUID) -> str:
@@ -52,9 +54,9 @@ def _preview(req: SendMessageRequest) -> str | None:
     if req.type.value == "text":
         return (req.content or "")[:200]
     if req.type.value == "image":
-        return "\U0001F4F7 Photo"
+        return "\U0001f4f7 Photo"
     if req.type.value == "video":
-        return "\U0001F3A5 Video"
+        return "\U0001f3a5 Video"
     return (req.content or "")[:200]
 
 
@@ -62,12 +64,15 @@ def _preview(req: SendMessageRequest) -> str | None:
 # Response builders
 # ---------------------------------------------------------------------------
 
+
 def _build_message_response(msg: Message) -> MessageResponse:
     return MessageResponse(
         id=msg.id,
         conversation_id=msg.conversation_id,
         sender_id=msg.sender_id,
-        sender=UserSnippet.model_validate(msg.sender) if msg.sender is not None else None,
+        sender=UserSnippet.model_validate(msg.sender)
+        if msg.sender is not None
+        else None,
         type=msg.type,
         content=msg.content,
         media_url=msg.media_url,
@@ -106,7 +111,9 @@ async def _load_conversation_response(
 ) -> ConversationResponse:
     conv = await db.get(Conversation, conversation_id)
     if conv is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found"
+        )
 
     part_result = await db.execute(
         select(ConversationParticipant).where(
@@ -152,6 +159,7 @@ async def _load_conversation_response(
 # Get-or-create a 1:1 DM (idempotent, race-safe via partial unique dm_key)
 # ---------------------------------------------------------------------------
 
+
 async def get_or_create_dm(
     user_id: uuid.UUID,
     participant_id: uuid.UUID,
@@ -165,7 +173,9 @@ async def get_or_create_dm(
 
     other = await db.get(User, participant_id)
     if other is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
 
     key = _dm_key(user_id, participant_id)
 
@@ -192,10 +202,16 @@ async def get_or_create_dm(
         db.add_all(
             [
                 ConversationParticipant(
-                    conversation_id=new_id, user_id=user_id, role="member", joined_at=now
+                    conversation_id=new_id,
+                    user_id=user_id,
+                    role="member",
+                    joined_at=now,
                 ),
                 ConversationParticipant(
-                    conversation_id=new_id, user_id=participant_id, role="member", joined_at=now
+                    conversation_id=new_id,
+                    user_id=participant_id,
+                    role="member",
+                    joined_at=now,
                 ),
             ]
         )
@@ -204,7 +220,9 @@ async def get_or_create_dm(
     else:
         # Lost the race — another request created it; commit the no-op and re-read.
         await db.commit()
-        res = await db.execute(select(Conversation.id).where(Conversation.dm_key == key))
+        res = await db.execute(
+            select(Conversation.id).where(Conversation.dm_key == key)
+        )
         conv_id = res.scalar_one()
 
     return await _load_conversation_response(conv_id, user_id, db)
@@ -213,6 +231,7 @@ async def get_or_create_dm(
 # ---------------------------------------------------------------------------
 # List conversations (most recent activity first, cursor-paginated)
 # ---------------------------------------------------------------------------
+
 
 async def list_conversations(
     user_id: uuid.UUID,
@@ -254,9 +273,7 @@ async def list_conversations(
     has_more = len(convs) > limit
     convs = convs[:limit]
 
-    responses = [
-        await _load_conversation_response(c.id, user_id, db) for c in convs
-    ]
+    responses = [await _load_conversation_response(c.id, user_id, db) for c in convs]
 
     next_cursor = None
     if has_more and convs:
@@ -269,6 +286,7 @@ async def list_conversations(
 # ---------------------------------------------------------------------------
 # Message history (newest first, cursor-paginated)
 # ---------------------------------------------------------------------------
+
 
 async def get_messages(
     conversation_id: uuid.UUID,
@@ -313,6 +331,7 @@ async def get_messages(
 # Send a message (single write path: persist + denormalize + unread + publish)
 # ---------------------------------------------------------------------------
 
+
 async def send_message(
     conversation_id: uuid.UUID,
     sender_id: uuid.UUID,
@@ -322,19 +341,15 @@ async def send_message(
     participants = await _ensure_participants(conversation_id, sender_id, db)
     participant_ids = [p.user_id for p in participants]
 
-    insert_stmt = (
-        pg_insert(Message)
-        .values(
-            conversation_id=conversation_id,
-            sender_id=sender_id,
-            type=req.type.value,
-            content=req.content,
-            media_url=req.media_url,
-            media_type=req.media_type,
-            thumbnail_url=req.thumbnail_url,
-            client_message_id=req.client_message_id,
-        )
-        .returning(Message.id, Message.created_at)
+    insert_stmt = pg_insert(Message).values(
+        conversation_id=conversation_id,
+        sender_id=sender_id,
+        type=req.type.value,
+        content=req.content,
+        media_url=req.media_url,
+        media_type=req.media_type,
+        thumbnail_url=req.thumbnail_url,
+        client_message_id=req.client_message_id,
     )
     if req.client_message_id is not None:
         insert_stmt = insert_stmt.on_conflict_do_nothing(
@@ -342,7 +357,7 @@ async def send_message(
             index_where=text("client_message_id IS NOT NULL"),
         )
 
-    result = await db.execute(insert_stmt)
+    result = await db.execute(insert_stmt.returning(Message.id, Message.created_at))
     row = result.first()
 
     if row is None:
@@ -400,6 +415,7 @@ async def send_message(
 # Mark a conversation read up to a message
 # ---------------------------------------------------------------------------
 
+
 async def mark_read(
     conversation_id: uuid.UUID,
     user_id: uuid.UUID,
@@ -415,13 +431,20 @@ async def mark_read(
             ConversationParticipant.conversation_id == conversation_id,
             ConversationParticipant.user_id == user_id,
         )
-        .values(last_read_message_id=req.last_read_message_id, last_read_at=now, unread_count=0)
+        .values(
+            last_read_message_id=req.last_read_message_id,
+            last_read_at=now,
+            unread_count=0,
+        )
     )
     await db.commit()
 
     other_ids = [p.user_id for p in participants if p.user_id != user_id]
     payload = events.message_read(
-        str(conversation_id), str(user_id), str(req.last_read_message_id), now.isoformat()
+        str(conversation_id),
+        str(user_id),
+        str(req.last_read_message_id),
+        now.isoformat(),
     )
     await pubsub.publish_to_users(other_ids, payload)
 
@@ -431,6 +454,7 @@ async def mark_read(
 # ---------------------------------------------------------------------------
 # Total unread across all conversations (app badge)
 # ---------------------------------------------------------------------------
+
 
 async def total_unread(user_id: uuid.UUID, db: AsyncSession) -> UnreadCountResponse:
     total = await db.scalar(

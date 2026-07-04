@@ -4,12 +4,14 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.modules.posts.models import Post, PostMedia
+from app.modules.posts.models import Post
 from app.modules.saves.models import PostSave
 from app.modules.saves.schemas import SaveResponse
 
 
-async def toggle_save(post_id: uuid.UUID, user_id: uuid.UUID, db: AsyncSession) -> SaveResponse:
+async def toggle_save(
+    post_id: uuid.UUID, user_id: uuid.UUID, db: AsyncSession
+) -> SaveResponse:
     result = await db.execute(
         select(PostSave).where(
             PostSave.post_id == post_id,

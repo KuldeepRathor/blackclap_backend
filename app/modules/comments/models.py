@@ -1,10 +1,14 @@
 import uuid
+from typing import TYPE_CHECKING
 
 from sqlalchemy import ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.shared.models.base import BaseModel
+
+if TYPE_CHECKING:
+    from app.modules.users.models import User
 
 
 class Comment(BaseModel):
@@ -30,7 +34,7 @@ class Comment(BaseModel):
         index=True,
     )
 
-    user: Mapped["User"] = relationship("User", lazy="joined")  # type: ignore[name-defined]
+    user: Mapped["User"] = relationship("User", lazy="joined")
     replies: Mapped[list["Comment"]] = relationship(
         "Comment",
         back_populates="parent",

@@ -4,14 +4,18 @@ import re
 import uuid
 from datetime import datetime
 
-from sqlalchemy import and_, func, or_, select, text
+from sqlalchemy import ColumnElement, and_, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.modules.follows.models import Follow
 from app.modules.posts.models import Post
 from app.modules.posts.service import _enrich_to_feed_responses
-from app.modules.search.schemas import SearchResponse, SearchUserResult
+from app.modules.search.schemas import (
+    SearchPostResult,
+    SearchResponse,
+    SearchUserResult,
+)
 from app.modules.users.models import User
 
 _MIN_QUERY_LENGTH = 2
@@ -115,7 +119,7 @@ async def search_posts(
     db: AsyncSession,
     limit: int = 20,
     cursor: str | None = None,
-) -> tuple[list, str | None]:
+) -> tuple[list[SearchPostResult], str | None]:
     sanitised = _sanitise_query(query)
     if not sanitised:
         return [], None
@@ -123,7 +127,7 @@ async def search_posts(
     fts_vector = func.to_tsvector("english", func.coalesce(Post.caption, ""))
     fts_query = func.plainto_tsquery("english", sanitised)
 
-    conditions = [
+    conditions: list[ColumnElement[bool]] = [
         Post.deleted_at.is_(None),
         fts_vector.op("@@")(fts_query),
     ]
@@ -171,7 +175,5 @@ async def search_all(
 ) -> SearchResponse:
     """Combined search returning a preview of both users (5) and posts (10)."""
     users = await search_users(query, requesting_user_id, db, limit=5, offset=0)
-    posts, next_cursor = await search_posts(
-        query, requesting_user_id, db, limit=10
-    )
+    posts, next_cursor = await search_posts(query, requesting_user_id, db, limit=10)
     return SearchResponse(users=users, posts=posts, next_cursor=next_cursor)

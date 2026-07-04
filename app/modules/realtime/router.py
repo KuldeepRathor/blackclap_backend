@@ -7,6 +7,7 @@ The connection is authenticated with the same JWT used by REST. The server
 pushes `message.new` / `message.read` / `typing` / `presence` frames; the client
 may send `ping`, `typing`, and `message.read` frames.
 """
+
 import json
 import logging
 

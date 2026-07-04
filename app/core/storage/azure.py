@@ -1,9 +1,9 @@
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Tuple
 
 from azure.storage.blob import (
-    BlobServiceClient,
     BlobSasPermissions,
+    BlobServiceClient,
     generate_blob_sas,
 )
 
@@ -17,7 +17,9 @@ _READ_SAS_EXPIRY_DAYS = 365 * 5
 def _get_client() -> BlobServiceClient:
     if not settings.AZURE_STORAGE_CONNECTION_STRING:
         raise RuntimeError("AZURE_STORAGE_CONNECTION_STRING not configured")
-    return BlobServiceClient.from_connection_string(settings.AZURE_STORAGE_CONNECTION_STRING)
+    return BlobServiceClient.from_connection_string(
+        settings.AZURE_STORAGE_CONNECTION_STRING
+    )
 
 
 def generate_sas_upload_url(
@@ -48,7 +50,8 @@ def generate_sas_upload_url(
         blob_name=blob_name,
         account_key=account_key,
         permission=BlobSasPermissions(create=True, write=True),
-        expiry=now + timedelta(minutes=expiry_minutes or settings.AZURE_SAS_EXPIRY_MINUTES),
+        expiry=now
+        + timedelta(minutes=expiry_minutes or settings.AZURE_SAS_EXPIRY_MINUTES),
         content_type=content_type,
     )
 

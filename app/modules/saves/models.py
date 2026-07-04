@@ -9,7 +9,9 @@ from app.shared.models.base import BaseModel
 
 class PostSave(BaseModel):
     __tablename__ = "post_saves"
-    __table_args__ = (UniqueConstraint("post_id", "user_id", name="uq_post_saves_post_user"),)
+    __table_args__ = (
+        UniqueConstraint("post_id", "user_id", name="uq_post_saves_post_user"),
+    )
 
     post_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),

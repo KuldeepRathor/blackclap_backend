@@ -237,7 +237,7 @@ server {
 - [ ] Domain: point `api.blackclap.com` DNS A record to Azure VM IP
 - [ ] HTTPS: Nginx + Certbot + Let's Encrypt (open port 443 in NSG)
 - [ ] Azure Blob Storage: wire up SAS URL generation endpoint
-- [ ] CI/CD: GitHub Actions → SSH deploy on push to `main`
+- [x] CI/CD: GitHub Actions → self-hosted runner deploy on push to `main` — see [.github/workflows/deploy.yml](.github/workflows/deploy.yml) and [Production Deployment](readme/production.md)
 - [ ] Managed DB: migrate to Azure Database for PostgreSQL (Flexible Server)
 - [ ] Monitoring: Azure Monitor + structured logging via structlog
 - [ ] Scaling: Azure VM Scale Sets or AKS when load demands it

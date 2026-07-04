@@ -35,7 +35,9 @@ class CreatePostRequest(BaseModel):
     location: str | None = Field(None, max_length=255)
     media_type: MediaType = MediaType.text
     media_urls: list[str] = Field(default_factory=list, max_length=5)
-    thumbnail_url: str | None = Field(None, description="Thumbnail blob URL for video posts")
+    thumbnail_url: str | None = Field(
+        None, description="Thumbnail blob URL for video posts"
+    )
     tagged_user_ids: list[uuid.UUID] = Field(default_factory=list, max_length=20)
 
     @model_validator(mode="after")

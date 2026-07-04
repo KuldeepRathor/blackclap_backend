@@ -13,9 +13,8 @@ from app.modules.posts.service import (
     create_post,
     get_feed_posts,
     get_reels,
-    get_user_posts,
-    get_saved_posts_feed,
     get_tagged_posts,
+    get_user_posts,
     record_post_view_bg,
 )
 from app.modules.users.models import User
@@ -41,7 +40,10 @@ async def get_feed_endpoint(
 @router.get("/reels", response_model=list[FeedPostResponse])
 async def get_reels_endpoint(
     limit: int = Query(default=20, ge=1, le=50),
-    cursor: datetime | None = Query(default=None, description="created_at of the last reel received; omit for first page"),
+    cursor: datetime | None = Query(
+        default=None,
+        description="created_at of the last reel received; omit for first page",
+    ),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[FeedPostResponse]:
@@ -74,7 +76,9 @@ async def get_posts_by_username_endpoint(
     result = await db.execute(select(User).where(User.username == username))
     target = result.scalar_one_or_none()
     if not target:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found."
+        )
     return await get_user_posts(
         user_id=target.id,
         requesting_user_id=current_user.id,
@@ -103,7 +107,9 @@ async def get_tagged_posts_by_username_endpoint(
     result = await db.execute(select(User).where(User.username == username))
     target = result.scalar_one_or_none()
     if not target:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found."
+        )
     return await get_tagged_posts(
         user_id=target.id,
         requesting_user_id=current_user.id,
@@ -126,9 +132,13 @@ async def delete_post_endpoint(
     )
     post = result.scalar_one_or_none()
     if not post:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Post not found."
+        )
     if post.user_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your post.")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not your post."
+        )
     await db.execute(
         sa_update(Post)
         .where(Post.id == post_id)

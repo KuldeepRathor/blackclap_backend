@@ -1,0 +1,77 @@
+name: CI / Deploy to Production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  checks:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -e .[dev]
+
+      - name: Ruff lint
+        run: ruff check .
+
+      - name: Ruff format check
+        run: ruff format --check .
+
+      - name: Mypy (strict)
+        run: mypy --strict app
+
+  deploy:
+    name: Deploy to Azure VM
+    needs: checks
+    runs-on: [self-hosted, blackclap-prod]
+    environment: production
+    steps:
+      - name: Update code
+        working-directory: /home/azureuser/blackclap_backend
+        run: |
+          git fetch origin main
+          git reset --hard origin/main
+
+      - name: Install dependencies
+        working-directory: /home/azureuser/blackclap_backend
+        run: |
+          source venv/bin/activate
+          pip install -e .
+
+      - name: Run database migrations
+        working-directory: /home/azureuser/blackclap_backend
+        run: |
+          source venv/bin/activate
+          ENV=production alembic upgrade head
+
+      - name: Restart services
+        run: |
+          sudo systemctl restart blackclap-api blackclap-worker
+
+      - name: Health check
+        run: |
+          for i in $(seq 1 10); do
+            if curl -fsS http://localhost:8000/api/v1/health; then
+              echo ""
+              echo "Deploy healthy ✅"
+              exit 0
+            fi
+            echo "Waiting for API... ($i/10)"
+            sleep 3
+          done
+          echo "Health check FAILED after 30s ❌"
+          sudo systemctl status blackclap-api --no-pager -l | tail -30
+          exit 1

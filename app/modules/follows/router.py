@@ -1,3 +1,5 @@
+import uuid
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -105,7 +107,7 @@ async def get_following(
 
 async def _enrich_with_is_following(
     users: list[User],
-    current_user_id,
+    current_user_id: uuid.UUID,
     db: AsyncSession,
 ) -> list[SearchUserResult]:
     if not users:
@@ -135,13 +137,13 @@ async def _get_user_by_username(username: str, db: AsyncSession) -> User:
     result = await db.execute(select(User).where(User.username == username))
     user = result.scalar_one_or_none()
     if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found."
+        )
     return user
 
 
-async def _get_target_user(
-    username: str, current_user: User, db: AsyncSession
-) -> User:
+async def _get_target_user(username: str, current_user: User, db: AsyncSession) -> User:
     if username == current_user.username:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -150,12 +152,14 @@ async def _get_target_user(
     result = await db.execute(select(User).where(User.username == username))
     target = result.scalar_one_or_none()
     if not target:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found."
+        )
     return target
 
 
 async def _build_follow_response(
-    current_user_id, target_user_id, db: AsyncSession
+    current_user_id: uuid.UUID, target_user_id: uuid.UUID, db: AsyncSession
 ) -> FollowResponse:
     is_following_row = await db.execute(
         select(Follow).where(
@@ -165,12 +169,18 @@ async def _build_follow_response(
     )
     is_following = is_following_row.scalar_one_or_none() is not None
 
-    followers_count = await db.scalar(
-        select(func.count(Follow.id)).where(Follow.followed_id == target_user_id)
-    ) or 0
-    following_count = await db.scalar(
-        select(func.count(Follow.id)).where(Follow.follower_id == target_user_id)
-    ) or 0
+    followers_count = (
+        await db.scalar(
+            select(func.count(Follow.id)).where(Follow.followed_id == target_user_id)
+        )
+        or 0
+    )
+    following_count = (
+        await db.scalar(
+            select(func.count(Follow.id)).where(Follow.follower_id == target_user_id)
+        )
+        or 0
+    )
 
     return FollowResponse(
         is_following=is_following,

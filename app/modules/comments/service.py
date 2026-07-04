@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime
 
 from fastapi import HTTPException, status
-from sqlalchemy import func, or_, select, tuple_
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -11,17 +11,18 @@ from app.modules.comments.models import Comment
 from app.modules.comments.schemas import (
     CommentResponse,
     CommentsListResponse,
+    CommentUserSnippet,
     CreateCommentRequest,
     RepliesListResponse,
 )
 from app.modules.posts.models import Post
-
 
 # ---------------------------------------------------------------------------
 # Cursor helpers
 # Cursor encodes (created_at ISO string, id) so pagination is stable and cheap.
 # Top-level comments: newest first (DESC). Replies: oldest first (ASC).
 # ---------------------------------------------------------------------------
+
 
 def _encode_cursor(created_at: datetime, row_id: uuid.UUID) -> str:
     raw = f"{created_at.isoformat()}|{row_id}"
@@ -34,7 +35,9 @@ def _decode_cursor(cursor: str) -> tuple[datetime, uuid.UUID]:
         dt_str, id_str = raw.split("|", 1)
         return datetime.fromisoformat(dt_str), uuid.UUID(id_str)
     except Exception:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid cursor")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid cursor"
+        )
 
 
 def _to_response(c: Comment, replies_count: int = 0) -> CommentResponse:
@@ -42,7 +45,7 @@ def _to_response(c: Comment, replies_count: int = 0) -> CommentResponse:
         id=c.id,
         post_id=c.post_id,
         user_id=c.user_id,
-        user=c.user,
+        user=CommentUserSnippet.model_validate(c.user),
         content=c.content,
         parent_id=c.parent_id,
         replies_count=replies_count,
@@ -54,6 +57,7 @@ def _to_response(c: Comment, replies_count: int = 0) -> CommentResponse:
 # Get top-level comments (newest first, cursor-paginated)
 # ---------------------------------------------------------------------------
 
+
 async def get_comments(
     post_id: uuid.UUID,
     db: AsyncSession,
@@ -62,7 +66,9 @@ async def get_comments(
 ) -> CommentsListResponse:
     post = await db.get(Post, post_id)
     if post is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Post not found"
+        )
 
     stmt = (
         select(Comment)
@@ -114,6 +120,7 @@ async def get_comments(
 # Get replies for a comment (oldest first, cursor-paginated)
 # ---------------------------------------------------------------------------
 
+
 async def get_replies(
     post_id: uuid.UUID,
     comment_id: uuid.UUID,
@@ -123,7 +130,9 @@ async def get_replies(
 ) -> RepliesListResponse:
     parent = await db.get(Comment, comment_id)
     if parent is None or parent.post_id != post_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Comment not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Comment not found"
+        )
 
     stmt = (
         select(Comment)
@@ -154,12 +163,15 @@ async def get_replies(
         else None
     )
 
-    return RepliesListResponse(replies=[_to_response(r) for r in replies], next_cursor=next_cursor)
+    return RepliesListResponse(
+        replies=[_to_response(r) for r in replies], next_cursor=next_cursor
+    )
 
 
 # ---------------------------------------------------------------------------
 # Create comment / reply
 # ---------------------------------------------------------------------------
+
 
 async def add_comment(
     post_id: uuid.UUID,
@@ -169,12 +181,16 @@ async def add_comment(
 ) -> CommentResponse:
     post = await db.get(Post, post_id)
     if post is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Post not found"
+        )
 
     if req.parent_id is not None:
         parent = await db.get(Comment, req.parent_id)
         if parent is None or parent.post_id != post_id:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Parent comment not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Parent comment not found"
+            )
         # Only one level of threading (replies to top-level comments only)
         if parent.parent_id is not None:
             raise HTTPException(
@@ -182,12 +198,16 @@ async def add_comment(
                 detail="Cannot reply to a reply",
             )
 
-    comment = Comment(post_id=post_id, user_id=user_id, content=req.content, parent_id=req.parent_id)
+    comment = Comment(
+        post_id=post_id, user_id=user_id, content=req.content, parent_id=req.parent_id
+    )
     db.add(comment)
     await db.commit()
 
     result = await db.execute(
-        select(Comment).where(Comment.id == comment.id).options(selectinload(Comment.user))
+        select(Comment)
+        .where(Comment.id == comment.id)
+        .options(selectinload(Comment.user))
     )
     comment = result.scalar_one()
     return _to_response(comment)
@@ -197,6 +217,7 @@ async def add_comment(
 # Delete comment
 # ---------------------------------------------------------------------------
 
+
 async def delete_comment(
     comment_id: uuid.UUID,
     user_id: uuid.UUID,
@@ -204,8 +225,13 @@ async def delete_comment(
 ) -> None:
     comment = await db.get(Comment, comment_id)
     if comment is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Comment not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Comment not found"
+        )
     if comment.user_id != user_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot delete another user's comment")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot delete another user's comment",
+        )
     await db.delete(comment)
     await db.commit()

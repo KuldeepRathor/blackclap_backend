@@ -14,6 +14,7 @@ Durability note: Redis pub/sub is fire-and-forget. Postgres is the source of
 truth — on reconnect the client refetches history, so a missed live frame is
 never a lost message.
 """
+
 import asyncio
 import json
 import logging
@@ -43,7 +44,7 @@ class ChatPubSub:
     def __init__(self) -> None:
         self._redis: aioredis.Redis | None = None
         self._pubsub: Any = None
-        self._reader_task: asyncio.Task | None = None
+        self._reader_task: asyncio.Task[None] | None = None
         self._lock = asyncio.Lock()
         self._running = False
 
@@ -61,7 +62,9 @@ class ChatPubSub:
         self._pubsub = self._redis.pubsub()
         await self._pubsub.subscribe(_CONTROL_CHANNEL)
         self._running = True
-        self._reader_task = asyncio.create_task(self._reader(), name="chat-pubsub-reader")
+        self._reader_task = asyncio.create_task(
+            self._reader(), name="chat-pubsub-reader"
+        )
         logger.info("ChatPubSub started (redis=%s)", settings.REDIS_URL)
 
     async def stop(self) -> None:
@@ -102,13 +105,19 @@ class ChatPubSub:
 
     # --- Publishing (called from the send path / WS router) ---
 
-    async def publish_to_user(self, user_id: uuid.UUID, payload: dict[str, Any]) -> None:
+    async def publish_to_user(
+        self, user_id: uuid.UUID, payload: dict[str, Any]
+    ) -> None:
         if self._redis is None:
             logger.warning("publish_to_user called before ChatPubSub started")
             return
-        await self._redis.publish(_user_channel(user_id), json.dumps(payload, default=str))
+        await self._redis.publish(
+            _user_channel(user_id), json.dumps(payload, default=str)
+        )
 
-    async def publish_to_users(self, user_ids: list[uuid.UUID], payload: dict[str, Any]) -> None:
+    async def publish_to_users(
+        self, user_ids: list[uuid.UUID], payload: dict[str, Any]
+    ) -> None:
         for uid in user_ids:
             await self.publish_to_user(uid, payload)
 
@@ -142,7 +151,9 @@ class ChatPubSub:
         assert self._pubsub is not None
         while self._running:
             try:
-                msg = await self._pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
+                msg = await self._pubsub.get_message(
+                    ignore_subscribe_messages=True, timeout=1.0
+                )
                 if msg is None:
                     continue
                 channel = msg.get("channel")
