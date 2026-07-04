@@ -57,3 +57,30 @@ class TokenData(BaseModel):
     """Schema for parsed JWT token payload data."""
 
     user_id: Optional[str] = None
+
+
+class MessageResponse(BaseModel):
+    """Generic message response (used for password-reset endpoints)."""
+
+    message: str
+
+
+class ForgotPasswordRequest(BaseModel):
+    """Request a password-reset code be sent to the given email."""
+
+    email: EmailStr
+
+
+class VerifyResetCodeRequest(BaseModel):
+    """Validate a reset code without consuming it (gates the new-password screen)."""
+
+    email: EmailStr
+    code: str = Field(..., min_length=6, max_length=6, pattern=r"^\d{6}$")
+
+
+class ResetPasswordRequest(BaseModel):
+    """Consume a reset code and set a new password."""
+
+    email: EmailStr
+    code: str = Field(..., min_length=6, max_length=6, pattern=r"^\d{6}$")
+    new_password: str = Field(..., min_length=6, max_length=100)

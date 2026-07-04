@@ -1,22 +1,47 @@
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config.settings import settings
 from app.core.database.session import get_db
+from app.core.email.sender import email_sender
+from app.core.email.templates import password_reset_email
 from app.core.security.auth import get_current_user
 from app.core.security.jwt import create_access_token, create_refresh_token
+from app.core.security.otp import (
+    generate_otp,
+    register_send,
+    store_reset_code,
+    verify_reset_code,
+)
 from app.core.security.password import hash_password, verify_password
 from app.modules.auth.schemas import (
     AuthResponse,
+    ForgotPasswordRequest,
+    MessageResponse,
+    ResetPasswordRequest,
     Token,
     UserLogin,
     UserRegister,
     UserResponse,
+    VerifyResetCodeRequest,
 )
 from app.modules.users.models import User
+
+# Generic response so we never reveal whether an email is registered.
+_GENERIC_RESET_MESSAGE = (
+    "If an account exists for that email, a password reset code has been sent."
+)
+
+
+async def _send_reset_email(email: str, code: str) -> None:
+    """Background task: build and dispatch the OTP email. Never raises."""
+    ttl_minutes = max(1, settings.PASSWORD_RESET_CODE_TTL_SECONDS // 60)
+    subject, text, html = password_reset_email(code, ttl_minutes)
+    await email_sender.send(to=email, subject=subject, text=text, html=html)
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -160,3 +185,77 @@ async def login_for_access_token(
 async def get_me(current_user: User = Depends(get_current_user)) -> Any:
     """Get profile information of the currently authenticated user."""
     return current_user
+
+
+@router.post("/forgot-password", response_model=MessageResponse)
+async def forgot_password(
+    payload: ForgotPasswordRequest,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """
+    Start the password-reset flow: if the email belongs to an account, generate
+    a 6-digit code, store its hash in Redis (10-min TTL), and email it.
+
+    Always returns the same generic message regardless of whether the email
+    exists, to prevent user-enumeration.
+    """
+    stmt = select(User).where(User.email == payload.email)
+    result = await db.execute(stmt)
+    user = result.scalar_one_or_none()
+
+    # Only send if the account exists and is active; otherwise silently no-op.
+    if user and user.is_active:
+        # Rate-limit sends per email; if exceeded, silently skip sending.
+        if await register_send(payload.email):
+            code = generate_otp()
+            await store_reset_code(payload.email, code)
+            background_tasks.add_task(_send_reset_email, payload.email, code)
+
+    return {"message": _GENERIC_RESET_MESSAGE}
+
+
+@router.post("/verify-reset-code", response_model=MessageResponse)
+async def verify_reset_code_endpoint(payload: VerifyResetCodeRequest) -> Any:
+    """
+    Validate a reset code without consuming it, so the app can gate the
+    new-password screen. Returns 400 if the code is invalid or expired.
+    """
+    valid = await verify_reset_code(payload.email, payload.code, consume=False)
+    if not valid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired code.",
+        )
+    return {"message": "Code verified."}
+
+
+@router.post("/reset-password", response_model=MessageResponse)
+async def reset_password(
+    payload: ResetPasswordRequest, db: AsyncSession = Depends(get_db)
+) -> Any:
+    """
+    Consume the reset code and set a new password. Re-validates the code
+    (single-use), updates the user's hashed password, and clears the code.
+    """
+    valid = await verify_reset_code(payload.email, payload.code, consume=True)
+    if not valid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired code.",
+        )
+
+    stmt = select(User).where(User.email == payload.email)
+    result = await db.execute(stmt)
+    user = result.scalar_one_or_none()
+    if not user:
+        # Code was valid but the account vanished — treat as a bad request.
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired code.",
+        )
+
+    user.hashed_password = hash_password(payload.new_password)
+    await db.commit()
+
+    return {"message": "Your password has been reset. You can now log in."}

@@ -59,6 +59,20 @@ class Settings(BaseSettings):
     CELERY_BROKER_URL: str = "redis://localhost:6379/1"
     CELERY_RESULT_BACKEND: str = "redis://localhost:6379/1"
 
+    # Email (SMTP) — used for password-reset OTP codes
+    SMTP_HOST: Optional[str] = None
+    SMTP_PORT: int = 587
+    SMTP_USER: Optional[str] = None
+    SMTP_PASSWORD: Optional[str] = None
+    SMTP_USE_TLS: bool = True  # STARTTLS on port 587; set False for plain/local dev
+    EMAIL_FROM: str = "BlackClap <no-reply@blackclap.com>"
+
+    # Password reset (OTP) config
+    PASSWORD_RESET_CODE_TTL_SECONDS: int = 600  # 10 minutes
+    PASSWORD_RESET_MAX_ATTEMPTS: int = 5
+    PASSWORD_RESET_MAX_SENDS: int = 3  # per email within the send window
+    PASSWORD_RESET_SEND_WINDOW_SECONDS: int = 900  # 15 minutes
+
     model_config = SettingsConfigDict(env_file=env_file_path, extra="ignore")
 
 
