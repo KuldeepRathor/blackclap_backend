@@ -21,8 +21,7 @@ already-anonymized users are skipped on subsequent runs.
 import asyncio
 import uuid
 
-from sqlalchemy import delete, or_, update
-from sqlalchemy import select
+from sqlalchemy import delete, or_, select, update
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
@@ -61,7 +60,7 @@ def _user_blob_prefixes(user_id: uuid.UUID) -> list[tuple[str, str]]:
     ]
 
 
-async def _purge() -> dict:
+async def _purge() -> dict[str, int]:
     from datetime import datetime, timedelta, timezone
 
     engine = create_async_engine(settings.DATABASE_URL, future=True)
@@ -136,7 +135,7 @@ async def _purge() -> dict:
     return {"users_purged": len(purged_ids), "blobs_deleted": blobs_deleted}
 
 
-@celery_app.task(name="account.purge_deleted_accounts")
-def purge_deleted_accounts() -> dict:
+@celery_app.task(name="account.purge_deleted_accounts")  # type: ignore[untyped-decorator]
+def purge_deleted_accounts() -> dict[str, int]:
     """Celery entrypoint: run the async purge in a fresh event loop."""
     return asyncio.run(_purge())

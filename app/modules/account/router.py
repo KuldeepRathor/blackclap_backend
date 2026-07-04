@@ -42,7 +42,8 @@ _PAGE_STYLE = """
   }
   button {
     width: 100%; margin-top: 22px; padding: 14px; border: 0; border-radius: 10px;
-    background: #e5484d; color: #fff; font-size: 16px; font-weight: 600; cursor: pointer;
+    background: #e5484d; color: #fff; font-size: 16px; font-weight: 600;
+    cursor: pointer;
   }
   button:hover { background: #d13438; }
   .note { font-size: 13px; color: #8e8e93; margin-top: 18px; }
@@ -78,9 +79,11 @@ async def delete_account_page() -> Any:
         <label for="email">Email</label>
         <input id="email" name="email" type="email" required autocomplete="email">
         <label for="password">Password</label>
-        <input id="password" name="password" type="password" required autocomplete="current-password">
+        <input id="password" name="password" type="password" required
+               autocomplete="current-password">
         <label for="confirm">Type <strong>DELETE</strong> to confirm</label>
-        <input id="confirm" name="confirm" type="text" required autocomplete="off" placeholder="DELETE">
+        <input id="confirm" name="confirm" type="text" required
+               autocomplete="off" placeholder="DELETE">
         <button type="submit">Delete my account</button>
       </form>
       <p class="note">Need help instead? Contact support@blackclap.com</p>
