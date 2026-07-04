@@ -40,19 +40,19 @@ jobs:
     environment: production
     steps:
       - name: Update code
-        working-directory: /home/azureuser/blackclap_backend
+        working-directory: /home/azureuser/apps/blackclap_backend
         run: |
           git fetch origin main
           git reset --hard origin/main
 
       - name: Install dependencies
-        working-directory: /home/azureuser/blackclap_backend
+        working-directory: /home/azureuser/apps/blackclap_backend
         run: |
           source venv/bin/activate
           pip install -e .
 
       - name: Run database migrations
-        working-directory: /home/azureuser/blackclap_backend
+        working-directory: /home/azureuser/apps/blackclap_backend
         run: |
           source venv/bin/activate
           ENV=production alembic upgrade head
