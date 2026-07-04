@@ -21,6 +21,8 @@ dependencies = [
     "pyjwt",
     "bcrypt",
     "python-multipart",
+    "aiosmtplib",
+    "certifi",
 ]
 
 [project.optional-dependencies]

@@ -44,6 +44,32 @@ class RedisCache:
         except Exception:
             logger.exception("RedisCache.setex(%s) failed", key)
 
+    async def delete(self, key: str) -> None:
+        if self._redis is None:
+            return
+        try:
+            await self._redis.delete(key)
+        except Exception:
+            logger.exception("RedisCache.delete(%s) failed", key)
+
+    async def incr(self, key: str) -> int:
+        """Atomically increment a counter, returning the new value (0 on failure)."""
+        if self._redis is None:
+            return 0
+        try:
+            return int(await self._redis.incr(key))
+        except Exception:
+            logger.exception("RedisCache.incr(%s) failed", key)
+            return 0
+
+    async def expire(self, key: str, seconds: int) -> None:
+        if self._redis is None:
+            return
+        try:
+            await self._redis.expire(key, seconds)
+        except Exception:
+            logger.exception("RedisCache.expire(%s) failed", key)
+
     async def delete_pattern(self, pattern: str) -> None:
         """Delete all keys matching a glob pattern (use sparingly — O(N) scan)."""
         if self._redis is None:
