@@ -8,6 +8,7 @@ from sqlalchemy.orm import selectinload
 
 from app.modules.comments.models import Comment
 from app.modules.likes.models import PostLike
+from app.modules.moderation.service import get_blocked_user_ids, is_blocked_either_way
 from app.modules.posts.models import Post, PostMedia, PostTag, PostView
 from app.modules.posts.schemas import (
     CreatePostRequest,
@@ -297,6 +298,11 @@ async def get_user_posts(
     requesting_user_id: uuid.UUID,
     db: AsyncSession,
 ) -> list[FeedPostResponse]:
+    if user_id != requesting_user_id and await is_blocked_either_way(
+        user_id, requesting_user_id, db
+    ):
+        return []
+
     stmt = (
         select(Post)
         .where(Post.user_id == user_id, Post.deleted_at.is_(None))
@@ -389,14 +395,18 @@ async def get_feed_posts(
     limit: int = 20,
     offset: int = 0,
 ) -> list[FeedPostResponse]:
+    blocked_ids = await get_blocked_user_ids(requesting_user_id, db)
+
     stmt = (
         select(Post)
         .where(Post.deleted_at.is_(None))
         .options(selectinload(Post.media))
         .order_by(Post.created_at.desc())
-        .limit(limit)
-        .offset(offset)
     )
+    if blocked_ids:
+        stmt = stmt.where(Post.user_id.notin_(blocked_ids))
+    stmt = stmt.limit(limit).offset(offset)
+
     result = await db.execute(stmt)
     posts = list(result.scalars().all())
     return await _enrich_to_feed_responses(posts, requesting_user_id, db)

@@ -22,6 +22,7 @@ from app.modules.chat.schemas import (
     UnreadCountResponse,
     UserSnippet,
 )
+from app.modules.moderation.service import is_blocked_either_way
 from app.modules.users.models import User
 
 # ---------------------------------------------------------------------------
@@ -175,6 +176,12 @@ async def get_or_create_dm(
     if other is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
+
+    if await is_blocked_either_way(user_id, participant_id, db):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You cannot message this user.",
         )
 
     key = _dm_key(user_id, participant_id)
@@ -341,6 +348,15 @@ async def send_message(
     participants = await _ensure_participants(conversation_id, sender_id, db)
     participant_ids = [p.user_id for p in participants]
 
+    for other_id in participant_ids:
+        if other_id != sender_id and await is_blocked_either_way(
+            sender_id, other_id, db
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You cannot message this user.",
+            )
+
     insert_stmt = pg_insert(Message).values(
         conversation_id=conversation_id,
         sender_id=sender_id,
@@ -439,14 +455,18 @@ async def mark_read(
     )
     await db.commit()
 
-    other_ids = [p.user_id for p in participants if p.user_id != user_id]
+    # Publish to ALL participants, including the reader. The other side needs
+    # it for the "read" tick; the reader needs their own echo so the
+    # conversation-list unread badge clears in real time (and other devices of
+    # the reader stay in sync).
+    all_ids = [p.user_id for p in participants]
     payload = events.message_read(
         str(conversation_id),
         str(user_id),
         str(req.last_read_message_id),
         now.isoformat(),
     )
-    await pubsub.publish_to_users(other_ids, payload)
+    await pubsub.publish_to_users(all_ids, payload)
 
     return MarkReadResponse(unread_count=0, last_read_at=now)
 

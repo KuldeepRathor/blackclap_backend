@@ -14,6 +14,7 @@ from app.modules.comments.router import router as comments_router
 from app.modules.follows.router import router as follows_router
 from app.modules.likes.router import router as likes_router
 from app.modules.media.router import router as media_router
+from app.modules.moderation.router import router as moderation_router
 from app.modules.posts.router import router as posts_router
 from app.modules.realtime.router import router as realtime_router
 from app.modules.saves.router import router as saves_router
@@ -67,6 +68,7 @@ app.include_router(saves_router, prefix="/api/v1")
 app.include_router(search_router, prefix="/api/v1")
 app.include_router(chat_router, prefix="/api/v1")
 app.include_router(realtime_router, prefix="/api/v1")
+app.include_router(moderation_router, prefix="/api/v1")
 
 # Public browser-facing account-deletion pages (served at the site root, no
 # /api/v1 prefix) — required for the Google Play Data Deletion policy.

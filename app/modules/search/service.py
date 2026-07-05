@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.modules.follows.models import Follow
+from app.modules.moderation.service import get_blocked_user_ids
 from app.modules.posts.models import Post
 from app.modules.posts.service import _enrich_to_feed_responses
 from app.modules.search.schemas import (
@@ -59,17 +60,20 @@ async def search_users(
     ilike_pattern = f"%{escaped}%"
     prefix_pattern = f"{escaped}%"
 
+    blocked_ids = await get_blocked_user_ids(requesting_user_id, db)
+
+    stmt = select(User).where(
+        User.deleted_at.is_(None),
+        User.is_active.is_(True),
+        or_(
+            User.username.ilike(ilike_pattern, escape="\\"),
+            User.display_name.ilike(ilike_pattern, escape="\\"),
+        ),
+    )
+    if blocked_ids:
+        stmt = stmt.where(User.id.notin_(blocked_ids))
     stmt = (
-        select(User)
-        .where(
-            User.deleted_at.is_(None),
-            User.is_active.is_(True),
-            or_(
-                User.username.ilike(ilike_pattern, escape="\\"),
-                User.display_name.ilike(ilike_pattern, escape="\\"),
-            ),
-        )
-        .order_by(
+        stmt.order_by(
             # Prefix matches on username rank highest, then display_name prefix,
             # then mid-string matches — provides intuitive relevance ordering.
             text(
@@ -131,6 +135,10 @@ async def search_posts(
         Post.deleted_at.is_(None),
         fts_vector.op("@@")(fts_query),
     ]
+
+    blocked_ids = await get_blocked_user_ids(requesting_user_id, db)
+    if blocked_ids:
+        conditions.append(Post.user_id.notin_(blocked_ids))
 
     if cursor:
         parsed = _decode_cursor(cursor)

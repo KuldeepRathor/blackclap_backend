@@ -8,6 +8,7 @@ from app.core.database.session import get_db
 from app.core.security.auth import get_current_user
 from app.modules.follows.models import Follow
 from app.modules.follows.schemas import FollowResponse
+from app.modules.moderation.service import is_blocked_either_way
 from app.modules.search.schemas import SearchUserResult
 from app.modules.users.models import User
 
@@ -22,6 +23,12 @@ async def follow_user(
 ) -> FollowResponse:
     """Follow another user by username."""
     target = await _get_target_user(username, current_user, db)
+
+    if await is_blocked_either_way(current_user.id, target.id, db):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You cannot follow this user.",
+        )
 
     existing = await db.execute(
         select(Follow).where(
