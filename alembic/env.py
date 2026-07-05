@@ -12,6 +12,7 @@ from app.core.config.settings import settings
 from app.shared.models.base import Base
 
 # Make sure to import all models so SQLAlchemy registers them on Base.metadata
+from app.modules.auth.models import RefreshToken  # noqa: F401
 from app.modules.chat.models import (  # noqa: F401
     Conversation,
     ConversationParticipant,

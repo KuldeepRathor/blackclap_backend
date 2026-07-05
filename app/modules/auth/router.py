@@ -1,6 +1,6 @@
-from typing import Any
+from typing import Any, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,7 +10,6 @@ from app.core.database.session import get_db
 from app.core.email.sender import email_sender
 from app.core.email.templates import password_reset_email
 from app.core.security.auth import get_current_user
-from app.core.security.jwt import create_access_token, create_refresh_token
 from app.core.security.otp import (
     generate_otp,
     register_send,
@@ -23,14 +22,30 @@ from app.modules.auth.schemas import (
     AuthResponse,
     ForgotPasswordRequest,
     MessageResponse,
+    RefreshRequest,
     ResetPasswordRequest,
     Token,
+    TokenPair,
     UserLogin,
     UserRegister,
     UserResponse,
     VerifyResetCodeRequest,
 )
+from app.modules.auth.service import (
+    issue_token_pair,
+    revoke_all_user_tokens,
+    revoke_refresh_token,
+    rotate_refresh_token,
+)
 from app.modules.users.models import User
+
+
+def _client_info(request: Request) -> tuple[Optional[str], Optional[str]]:
+    """(user_agent, ip_address) — best-effort, both may be None."""
+    user_agent = request.headers.get("user-agent")
+    ip_address = request.client.host if request.client else None
+    return user_agent, ip_address
+
 
 # Generic response so we never reveal whether an email is registered.
 _GENERIC_RESET_MESSAGE = (
@@ -51,7 +66,9 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 @router.post(
     "/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED
 )
-async def register(user_in: UserRegister, db: AsyncSession = Depends(get_db)) -> Any:
+async def register(
+    user_in: UserRegister, request: Request, db: AsyncSession = Depends(get_db)
+) -> Any:
     """
     Register a new user in the system.
     Validates username/email uniqueness, hashes the password, and creates the record.
@@ -90,19 +107,16 @@ async def register(user_in: UserRegister, db: AsyncSession = Depends(get_db)) ->
     await db.refresh(user)
 
     # Automatically generate access & refresh tokens on signup
-    access_token = create_access_token(data={"sub": str(user.id)})
-    refresh_token = create_refresh_token(data={"sub": str(user.id)})
+    user_agent, ip_address = _client_info(request)
+    pair = await issue_token_pair(db, user, user_agent, ip_address)
 
-    return {
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-        "token_type": "bearer",
-        "user": user,
-    }
+    return {**pair, "user": user}
 
 
 @router.post("/login", response_model=AuthResponse)
-async def login(user_in: UserLogin, db: AsyncSession = Depends(get_db)) -> Any:
+async def login(
+    user_in: UserLogin, request: Request, db: AsyncSession = Depends(get_db)
+) -> Any:
     """
     Login using email or username and password, returning an access and refresh token.
     Accepts JSON body.
@@ -135,19 +149,15 @@ async def login(user_in: UserLogin, db: AsyncSession = Depends(get_db)) -> Any:
             )
 
     # Generate JWT tokens
-    access_token = create_access_token(data={"sub": str(user.id)})
-    refresh_token = create_refresh_token(data={"sub": str(user.id)})
+    user_agent, ip_address = _client_info(request)
+    pair = await issue_token_pair(db, user, user_agent, ip_address)
 
-    return {
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-        "token_type": "bearer",
-        "user": user,
-    }
+    return {**pair, "user": user}
 
 
 @router.post("/token", response_model=Token)
 async def login_for_access_token(
+    request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_db),
 ) -> Any:
@@ -182,14 +192,8 @@ async def login_for_access_token(
             )
 
     # Generate JWT tokens
-    access_token = create_access_token(data={"sub": str(user.id)})
-    refresh_token = create_refresh_token(data={"sub": str(user.id)})
-
-    return {
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-        "token_type": "bearer",
-    }
+    user_agent, ip_address = _client_info(request)
+    return await issue_token_pair(db, user, user_agent, ip_address)
 
 
 @router.get("/me", response_model=UserResponse)
@@ -270,3 +274,36 @@ async def reset_password(
     await db.commit()
 
     return {"message": "Your password has been reset. You can now log in."}
+
+
+@router.post("/refresh", response_model=TokenPair)
+async def refresh(
+    payload: RefreshRequest, request: Request, db: AsyncSession = Depends(get_db)
+) -> Any:
+    """
+    Exchange a refresh token for a new access/refresh pair. The presented
+    refresh token is rotated (revoked and replaced) — reusing it again is
+    treated as theft and revokes its entire token family.
+    """
+    user_agent, ip_address = _client_info(request)
+    return await rotate_refresh_token(db, payload.refresh_token, user_agent, ip_address)
+
+
+@router.post("/logout", response_model=MessageResponse)
+async def logout(payload: RefreshRequest, db: AsyncSession = Depends(get_db)) -> Any:
+    """
+    Revoke a single refresh token. Always returns success — logout is
+    idempotent and never reveals whether the token was still valid.
+    """
+    await revoke_refresh_token(db, payload.refresh_token)
+    return {"message": "Logged out."}
+
+
+@router.post("/logout-all", response_model=MessageResponse)
+async def logout_all(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """Revoke every refresh token for the current user (all devices)."""
+    await revoke_all_user_tokens(db, current_user.id)
+    return {"message": "Logged out of all devices."}

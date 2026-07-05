@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.core.cache.redis_cache import cache
+from app.core.config.settings import settings
 from app.core.websocket.pubsub import pubsub
 from app.modules.account.router import router as account_router
 from app.modules.auth.router import router as auth_router
@@ -43,17 +44,28 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS Middleware
+# CORS Middleware — restricted to known web origins. The mobile app is
+# unaffected (CORS only applies to browsers). Auth uses Bearer tokens, not
+# cookies, so credentialed cross-origin requests are unnecessary.
+_cors_origins = [
+    origin.strip()
+    for origin in settings.CORS_ALLOWED_ORIGINS.split(",")
+    if origin.strip()
+]
+if settings.DEBUG:
+    _cors_origins += ["http://localhost:3000", "http://127.0.0.1:3000"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Adjust in production
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=_cors_origins,
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "Accept"],
 )
 
-# Static files serving (Dev local upload storage emulator)
-app.mount("/static", StaticFiles(directory="static"), name="static")
+# Static files serving (dev local-upload emulator only — never mounted in prod)
+if settings.DEBUG:
+    app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Include Routers
 app.include_router(auth_router, prefix="/api/v1")

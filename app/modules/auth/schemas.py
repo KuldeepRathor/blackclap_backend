@@ -37,6 +37,20 @@ class Token(BaseModel):
     token_type: str = "bearer"
 
 
+class TokenPair(BaseModel):
+    """Access + refresh token pair returned by /auth/refresh."""
+
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+
+
+class RefreshRequest(BaseModel):
+    """Request body for /auth/refresh and /auth/logout."""
+
+    refresh_token: str
+
+
 class UserLogin(BaseModel):
     """Schema for validating user login requests via JSON."""
 
