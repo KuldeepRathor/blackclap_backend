@@ -32,6 +32,7 @@ from app.core.config.settings import settings
 from app.core.security.password import hash_password
 from app.core.storage.azure import delete_blobs_by_prefix
 from app.modules.account.service import GRACE_PERIOD_DAYS
+from app.modules.auth.models import RefreshToken
 from app.modules.chat.models import Message
 from app.modules.follows.models import Follow
 from app.modules.likes.models import PostLike
@@ -95,6 +96,9 @@ async def _purge() -> dict[str, int]:
                     delete(Follow).where(
                         or_(Follow.follower_id == uid, Follow.followed_id == uid)
                     )
+                )
+                await db.execute(
+                    delete(RefreshToken).where(RefreshToken.user_id == uid)
                 )
 
                 # --- Anonymize & keep cross-user content ---

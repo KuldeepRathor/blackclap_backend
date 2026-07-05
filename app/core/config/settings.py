@@ -36,14 +36,26 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     DATABASE_URL: str = "postgresql+asyncpg://user:password@localhost:5432/blackclap"
 
+    # CORS — comma-separated list of allowed browser origins. The mobile app is
+    # unaffected (CORS is a browser-only mechanism); this only matters for a
+    # future web client. Extra localhost origins are added automatically when
+    # DEBUG is True.
+    CORS_ALLOWED_ORIGINS: str = "https://blackclap.com,https://www.blackclap.com"
+
     # Firebase
     FIREBASE_PROJECT_ID: Optional[str] = None
     FIREBASE_SERVICE_ACCOUNT_PATH: Optional[str] = None
 
-    # JWT Security Config
-    JWT_SECRET_KEY: str = "dev-secret-key-change-in-production-1234567890"
+    # JWT Security Config — required, no default. Generate with:
+    # python3 -c "import secrets; print(secrets.token_urlsafe(64))"
+    JWT_SECRET_KEY: str
     JWT_ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    # Short-lived — this is the one token type that can't be revoked, so it
+    # must expire fast. Session longevity comes from the refresh token instead.
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    # Long-lived but rotating + revocable (see app/modules/auth/service.py),
+    # so a longer window here doesn't carry the same risk as on the access token.
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 30
 
     # Azure Blob Storage
     AZURE_STORAGE_CONNECTION_STRING: Optional[str] = None

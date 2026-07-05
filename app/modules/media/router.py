@@ -74,6 +74,11 @@ async def local_upload_emulator(
     request: Request,
     file_key: str,
 ) -> Any:
+    # Dev-only Azure emulator — an unauthenticated write endpoint has no place
+    # in production, where real Azure SAS uploads are used instead.
+    if not settings.DEBUG:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found.")
+
     clean_key = os.path.normpath(file_key).lstrip("/")
     if clean_key.startswith("..") or ".." in clean_key:
         raise HTTPException(

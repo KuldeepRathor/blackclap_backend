@@ -25,6 +25,11 @@ celery_app.conf.beat_schedule = {
         "task": "account.purge_deleted_accounts",
         "schedule": crontab(hour=3, minute=0),  # daily at 03:00 (Asia/Kolkata)
     },
+    # Sweep long-expired/long-revoked refresh_tokens rows.
+    "cleanup-expired-refresh-tokens-daily": {
+        "task": "auth.cleanup_expired_refresh_tokens",
+        "schedule": crontab(hour=4, minute=0),  # daily at 04:00 (Asia/Kolkata)
+    },
 }
 
 # Autodiscover tasks from registered modules and worker tasks
