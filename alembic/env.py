@@ -21,6 +21,7 @@ from app.modules.chat.models import (  # noqa: F401
 from app.modules.comments.models import Comment  # noqa: F401
 from app.modules.likes.models import PostLike  # noqa: F401
 from app.modules.moderation.models import Block, Report  # noqa: F401
+from app.modules.notifications.models import DeviceToken  # noqa: F401
 from app.modules.posts.models import Post, PostMedia  # noqa: F401
 from app.modules.saves.models import PostSave  # noqa: F401
 from app.modules.users.models import User  # noqa: F401

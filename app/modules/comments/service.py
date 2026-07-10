@@ -15,6 +15,7 @@ from app.modules.comments.schemas import (
     CreateCommentRequest,
     RepliesListResponse,
 )
+from app.modules.notifications.dispatch import enqueue_push
 from app.modules.posts.models import Post
 
 # ---------------------------------------------------------------------------
@@ -210,6 +211,21 @@ async def add_comment(
         .options(selectinload(Comment.user))
     )
     comment = result.scalar_one()
+
+    # Notify the post owner of a new comment (skip self-comments).
+    if post.user_id != user_id:
+        actor_name = (
+            comment.user.display_name or comment.user.username
+            if comment.user
+            else "Someone"
+        )
+        enqueue_push(
+            recipient_id=post.user_id,
+            title=actor_name,
+            body=f"commented: {(comment.content or '')[:120]}",
+            data={"type": "comment", "post_id": str(post_id)},
+        )
+
     return _to_response(comment)
 
 

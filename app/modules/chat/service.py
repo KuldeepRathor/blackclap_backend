@@ -23,6 +23,7 @@ from app.modules.chat.schemas import (
     UserSnippet,
 )
 from app.modules.moderation.service import is_blocked_either_way
+from app.modules.notifications.dispatch import enqueue_push
 from app.modules.users.models import User
 
 # ---------------------------------------------------------------------------
@@ -422,7 +423,28 @@ async def send_message(
     payload = events.message_new(response.model_dump(mode="json"))
     await pubsub.publish_to_users(participant_ids, payload)
 
-    # NOTE (Slice 2): enqueue a Celery push for offline recipients here.
+    # Enqueue a push for each recipient. Delivery always goes out via FCM; the
+    # client suppresses it locally if that recipient is foregrounded on this
+    # chat (it already got the live WebSocket update). Muted participants are
+    # skipped here so a muted DM never pushes.
+    sender_name = next(
+        (
+            p.user.display_name or p.user.username
+            for p in participants
+            if p.user_id == sender_id
+        ),
+        "New message",
+    )
+    preview = _preview(req) or "Sent you a message"
+    for p in participants:
+        if p.user_id == sender_id or p.is_muted:
+            continue
+        enqueue_push(
+            recipient_id=p.user_id,
+            title=sender_name,
+            body=preview,
+            data={"type": "chat", "conversation_id": str(conversation_id)},
+        )
 
     return response
 

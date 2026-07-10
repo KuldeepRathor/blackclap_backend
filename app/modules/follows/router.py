@@ -9,6 +9,7 @@ from app.core.security.auth import get_current_user
 from app.modules.follows.models import Follow
 from app.modules.follows.schemas import FollowResponse
 from app.modules.moderation.service import is_blocked_either_way
+from app.modules.notifications.dispatch import enqueue_push
 from app.modules.search.schemas import SearchUserResult
 from app.modules.users.models import User
 
@@ -39,6 +40,17 @@ async def follow_user(
     if existing.scalar_one_or_none() is None:
         db.add(Follow(follower_id=current_user.id, followed_id=target.id))
         await db.commit()
+        actor_name = current_user.display_name or current_user.username
+        enqueue_push(
+            recipient_id=target.id,
+            title=actor_name,
+            body="started following you",
+            data={
+                "type": "follow",
+                "user_id": str(current_user.id),
+                "username": current_user.username,
+            },
+        )
 
     return await _build_follow_response(current_user.id, target.id, db)
 
