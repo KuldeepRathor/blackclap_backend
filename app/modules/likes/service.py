@@ -6,7 +6,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.likes.models import PostLike
 from app.modules.likes.schemas import LikeResponse
+from app.modules.notifications.dispatch import enqueue_push
 from app.modules.posts.models import Post
+from app.modules.users.models import User
 
 
 async def toggle_like(
@@ -30,6 +32,17 @@ async def toggle_like(
         is_liked = True
 
     await db.commit()
+
+    # Notify the post owner of a new like (never on unlike, never self-like).
+    if is_liked and post.user_id != user_id:
+        actor = await db.get(User, user_id)
+        actor_name = (actor.display_name or actor.username) if actor else "Someone"
+        enqueue_push(
+            recipient_id=post.user_id,
+            title=actor_name,
+            body="liked your post",
+            data={"type": "like", "post_id": str(post_id)},
+        )
 
     likes_count = await db.scalar(
         select(func.count()).where(PostLike.post_id == post_id)

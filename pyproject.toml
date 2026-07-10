@@ -23,6 +23,7 @@ dependencies = [
     "python-multipart",
     "aiosmtplib",
     "certifi",
+    "firebase-admin",
 ]
 
 [project.optional-dependencies]
