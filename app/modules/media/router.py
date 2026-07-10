@@ -58,7 +58,13 @@ async def get_presigned_url(
                 detail=f"Azure SAS generation failed: {e}",
             )
     else:
-        base_url_str = str(request.base_url)
+        if not settings.DEBUG:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Media storage is not configured.",
+            )
+        scheme = request.headers.get("x-forwarded-proto", request.url.scheme)
+        base_url_str = f"{scheme}://{request.url.netloc}/"
         upload_url = f"{base_url_str}api/v1/media/local-upload?file_key={file_key}"
         download_url = f"{base_url_str}static/uploads/{file_key}"
         return {
