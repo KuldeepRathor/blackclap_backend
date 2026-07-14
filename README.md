@@ -5,7 +5,6 @@
 | Guide | Description |
 |---|---|
 | [Local Development](readme/local_dev.md) | Setup, run, lint, reset |
-| [Production Deployment](readme/production.md) | Deploy, systemd, nginx, updates |
 | [Database](readme/database.md) | Migrations, inspection, reset |
 | [Image Upload](readme/image_upload.md) | Azure SAS upload flow |
 
@@ -58,50 +57,6 @@ FastAPI (Docker)          ← API + business logic
 | FastAPI (8000) | ❌ | ❌ | ✅ only | ✅ |
 | PostgreSQL (5432) | ❌ | ❌ | ❌ | ✅ only |
 | Redis (6379) | ❌ | ❌ | ❌ | ✅ only |
-
----
-
-## Production Infrastructure (Azure)
-
-### Resource Group
-
-| Field | Value |
-|---|---|
-| Name | `blackclap-prod-rg` |
-| Region | Central India |
-| Reason | Low latency for India-first users |
-
-### Virtual Machine
-
-| Field | Value |
-|---|---|
-| Name | `blackclap-api-vm` |
-| OS | Ubuntu Server 24.04 LTS x64 Gen2 |
-| Size | Standard_B2s_v2 (2 vCPU, 8 GB RAM) |
-| Disk | 64 GB Premium SSD LRS |
-| Auth | SSH key — `~/.ssh/blackclap-api-vm_key.pem` |
-| Username | `azureuser` |
-
-SSH into VM:
-```bash
-ssh -i ~/.ssh/blackclap-api-vm_key.pem azureuser@<AZURE_PUBLIC_IP>
-```
-
-### Network Security Group (NSG) Rules
-
-| Rule | Port | Source | Purpose |
-|---|---|---|---|
-| SSH | 22 | My IP only (`49.36.xx.xx/32`) | Secure shell access |
-| HTTP | 80 | Any | Web traffic |
-| HTTPS | 443 | Any | Secure web traffic |
-
-No DB or cache ports are open to the public or any external source.
-
-### Software Installed on VM
-
-```
-Docker, Docker Compose v2, Git, Curl, Nginx
-```
 
 ---
 
@@ -211,41 +166,15 @@ FastAPI saves metadata to PostgreSQL
 
 ---
 
-## Nginx Configuration (Production)
-
-Located at `/etc/nginx/sites-available/blackclap-api` on the VM:
-
-```nginx
-server {
-    listen 80;
-    server_name _;
-
-    location / {
-        proxy_pass http://localhost:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-```
-
----
-
 ## Planned Next Steps
 
-- [ ] Domain: point `api.blackclap.com` DNS A record to Azure VM IP
-- [ ] HTTPS: Nginx + Certbot + Let's Encrypt (open port 443 in NSG)
-- [ ] Azure Blob Storage: wire up SAS URL generation endpoint
-- [x] CI/CD: GitHub Actions → self-hosted runner deploy on push to `main` — see [.github/workflows/deploy.yml](.github/workflows/deploy.yml) and [Production Deployment](readme/production.md)
-- [ ] Managed DB: migrate to Azure Database for PostgreSQL (Flexible Server)
-- [ ] Monitoring: Azure Monitor + structured logging via structlog
-- [ ] Scaling: Azure VM Scale Sets or AKS when load demands it
+- [ ] HTTPS via reverse proxy + Let's Encrypt
+- [ ] Managed DB: migrate to a managed PostgreSQL service
+- [ ] Monitoring: structured logging + metrics
+- [ ] Scaling: horizontal scaling when load demands it
 
 ---
 
 ## Design Decisions
 
 See [rules.md](rules.md) for architecture rules, coding conventions, and database guidelines.
-
-<!-- testing 2-->
